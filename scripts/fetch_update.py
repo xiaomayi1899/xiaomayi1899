@@ -99,7 +99,7 @@ def fetch_textdb():
     txt = http_text(TEXTDB + '?_=' + str(int(time.time()))).strip()
     if txt.startswith('window.CSQ_LIVE='):
         txt = txt[len('window.CSQ_LIVE='):]
-    obj = json.loads(txt)
+    obj, _ = json.JSONDecoder().raw_decode(txt.lstrip())
     games = obj.get('games') or {}
     ssq, dlt = [], []
     for r in games.get('ssq') or []:
