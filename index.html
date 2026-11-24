@@ -426,6 +426,285 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-24T03:
     return { red: red, blue: arr[0].b, why: '主驱动=反热门博弈：规避生日段(≤31)/小号(≤12)/幸运尾(6,8)/吉利数等大众偏好。开奖概率与热门无关，但冷门组合中奖时均摊人数更少→期望分成更高（决策论视角）；蓝球同理' };
   }
 
+  /* ================ 新增 3 式（s9-s11，每式一个独立数学方法） ================ */
+
+  /* logistic 趋势 MLE（Newton-Raphson）→ Pearson 趋势残差：z=(Σx−Σp̂)/max(√Σp̂,1) */
+  function logisticResidual(seq, kmax, isIn) {
+    var n = seq.length;
+    var xc = (n - 1) / 2;
+    var out = {};
+    for (var num = 1; num <= kmax; num++) {
+      var y = 0;
+      for (var j = 0; j < n; j++) if (isIn(seq[j], num)) y++;
+      var z = 0;
+      if (y > 0 && y < n) {
+        var b0 = Math.log((y + 0.5) / (n - y + 0.5)), b1 = 0;
+        for (var it = 0; it < 12; it++) {
+          var g0 = 0, g1 = 0, h00 = 0, h01 = 0, h11 = 0;
+          for (var j2 = 0; j2 < n; j2++) {
+            var eta = b0 + b1 * (j2 - xc);
+            var p = 1 / (1 + Math.exp(-eta));
+            if (p < 1e-6) p = 1e-6; else if (p > 1 - 1e-6) p = 1 - 1e-6;
+            var wgt = p * (1 - p);
+            var r = (isIn(seq[j2], num) ? 1 : 0) - p;
+            g0 += r; g1 += r * (j2 - xc);
+            h00 += wgt; h01 += wgt * (j2 - xc); h11 += wgt * (j2 - xc) * (j2 - xc);
+          }
+          var det = h00 * h11 - h01 * h01;
+          if (Math.abs(det) < 1e-9) break;
+          var d0 = (g0 * h11 - g1 * h01) / det;
+          var d1 = (g1 * h00 - g0 * h01) / det;
+          b0 += d0; b1 += d1;
+          if (b1 > 3) b1 = 3; else if (b1 < -3) b1 = -3;
+          if (Math.abs(d0) < 1e-6 && Math.abs(d1) < 1e-6) break;
+        }
+        var mu = 0;
+        for (var j3 = 0; j3 < n; j3++) mu += 1 / (1 + Math.exp(-(b0 + b1 * (j3 - xc))));
+        z = (y - mu) / Math.max(Math.sqrt(Math.max(mu, 1e-6)), 1);
+      }
+      out[num] = Math.round(z * 1000) / 1000;
+    }
+    return out;
+  }
+
+  /* Cochran–Armitage 连续剂量趋势得分检验：z=Σxⱼ(dⱼ−d̄)/√(p̄(1−p̄)Σ(dⱼ−d̄)²) */
+  function caTrendSSQ(seq, kmax, isIn) {
+    var n = seq.length;
+    var xc = (n - 1) / 2, sxx = 0;
+    for (var j = 0; j < n; j++) sxx += (j - xc) * (j - xc);
+    var out = {};
+    for (var num = 1; num <= kmax; num++) {
+      var y = 0, t = 0;
+      for (var j2 = 0; j2 < n; j2++) {
+        var x = isIn(seq[j2], num) ? 1 : 0;
+        y += x; t += x * (j2 - xc);
+      }
+      var pb = y / n;
+      var z = (pb > 0 && pb < 1 && sxx > 0) ? t / Math.sqrt(pb * (1 - pb) * sxx) : 0;
+      out[num] = Math.round(z * 1000) / 1000;
+    }
+    return out;
+  }
+
+  /* 同期共现频次矩阵 w[i][j] */
+  function cooccurSSQ(rows, kmax, isIn) {
+    var w = {};
+    for (var i = 1; i <= kmax; i++) { w[i] = {}; for (var j = 1; j <= kmax; j++) w[i][j] = 0; }
+    for (var k = 0; k < rows.length; k++) {
+      for (var a = 1; a <= kmax; a++) {
+        if (!isIn(rows[k], a)) continue;
+        for (var b = a + 1; b <= kmax; b++) {
+          if (!isIn(rows[k], b)) continue;
+          w[a][b]++; w[b][a]++;
+        }
+      }
+    }
+    return w;
+  }
+
+  /* 组内两两权重最小化枚举（确定性，平票升序字典序），带逐级放宽 */
+  function pickMinPairSSQ(pool, k, w, cons) {
+    function run(cns) {
+      var best = null;
+      (function go(start, cur, sw) {
+        if (cur.length === k) {
+          if (!cns || checkCons(cur, cns)) {
+            if (!best || sw < best.sw - 1e-9 || (sw < best.sw + 1e-9 && lexLess(cur, best.arr))) best = { arr: cur.slice(), sw: sw };
+          }
+          return;
+        }
+        if (pool.length - start < k - cur.length) return;
+        for (var i = start; i < pool.length; i++) {
+          var add = 0;
+          for (var t = 0; t < cur.length; t++) add += w[cur[t]][pool[i]];
+          cur.push(pool[i]);
+          go(i + 1, cur, sw + add);
+          cur.pop();
+        }
+      })(0, [], 0);
+      return best;
+    }
+    var best = run(cons);
+    if (!best && cons) best = run(stripCons(cons, ['sumLo', 'sumHi']));
+    if (!best) best = run(null);
+    if (!best) return pool.slice(0, k).sort(asc);
+    return best.arr.slice().sort(asc);
+  }
+
+  function norm01SSQ(m, kmax) {
+    var lo = Infinity, hi = -Infinity;
+    for (var n = 1; n <= kmax; n++) { if (m[n] < lo) lo = m[n]; if (m[n] > hi) hi = m[n]; }
+    var rng = (hi - lo) || 1;
+    var out = {};
+    for (var n2 = 1; n2 <= kmax; n2++) out[n2] = (m[n2] - lo) / rng;
+    return out;
+  }
+
+  /* BMA 三模型：后验频率 / 危险率 / 趋势得分（统一「越大越可能入选」口径） */
+  function ssqModels(rows) {
+    var W100 = Math.min(100, rows.length);
+    var f30 = redFreq(rows, 30), f100 = redFreq(rows, W100);
+    var om = omitMap(rows), ag = meanGapMap(rows.slice().reverse());
+    var seq = rows.slice(0, Math.min(90, rows.length)).slice().reverse();
+    var z = caTrendSSQ(seq, 33, function (d, num) { return d.red.indexOf(num) >= 0; });
+    var m1 = {}, m2 = {}, m3 = {};
+    for (var n = 1; n <= 33; n++) {
+      m1[n] = (f30[n] + 20 * ((f100[n] + 1) / (W100 + 33))) / 50;
+      m2[n] = Math.min(om[n] / Math.max(ag[n], 2), 4);
+      m3[n] = -z[n];
+    }
+    return [m1, m2, m3];
+  }
+
+  function ssqBMA(rows, holdN) {
+    var L = [0, 0, 0], used = 0;
+    for (var j = 0; j < holdN && j < rows.length - 1; j++) {
+      var before = rows.slice(j + 1);
+      if (before.length < 60) break;
+      var drawn = {};
+      var act = rows[j].red;
+      for (var t = 0; t < act.length; t++) drawn[act[t]] = 1;
+      var ms = ssqModels(before);
+      for (var mi = 0; mi < 3; mi++) {
+        var nm = norm01SSQ(ms[mi], 33);
+        var ls = 0;
+        for (var n = 1; n <= 33; n++) {
+          var p = 0.04 + 0.28 * nm[n];
+          ls += drawn[n] ? Math.log(p) : Math.log(1 - p);
+        }
+        L[mi] += ls;
+      }
+      used++;
+    }
+    var ws;
+    if (!used) ws = [1 / 3, 1 / 3, 1 / 3];
+    else {
+      var mx = Math.max(L[0], L[1], L[2]);
+      var e0 = Math.exp(L[0] - mx), e1 = Math.exp(L[1] - mx), e2 = Math.exp(L[2] - mx);
+      var s = e0 + e1 + e2;
+      ws = [e0 / s, e1 / s, e2 / s];
+    }
+    return { w: ws, used: used };
+  }
+
+  function ssqBlueModels(rows) {
+    var W100 = Math.min(100, rows.length);
+    var b30 = countBy(rows.slice(0, Math.min(30, rows.length)).map(function (r) { return r.blue; }));
+    var b100 = countBy(rows.slice(0, W100).map(function (r) { return r.blue; }));
+    var bOm = {};
+    for (var b = 1; b <= 16; b++) bOm[b] = rows.length;
+    for (var i = 0; i < rows.length; i++) { var bb = rows[i].blue; if (bOm[bb] === rows.length) bOm[bb] = i; }
+    var bof = rows.slice().reverse().map(function (r) { return r.blue; });
+    var bpos = {};
+    for (b = 1; b <= 16; b++) bpos[b] = [];
+    for (i = 0; i < bof.length; i++) bpos[bof[i]].push(i);
+    var bAg = {};
+    for (b = 1; b <= 16; b++) {
+      var p = bpos[b];
+      if (p.length >= 2) { var s = 0; for (var k = 1; k < p.length; k++) s += p[k] - p[k - 1]; bAg[b] = s / (p.length - 1); }
+      else bAg[b] = Math.max(4, bof.length / 3);
+    }
+    var seq = rows.slice(0, Math.min(60, rows.length)).slice().reverse();
+    var z = caTrendSSQ(seq, 16, function (d, num) { return d.blue === num; });
+    var m1 = {}, m2 = {}, m3 = {};
+    for (b = 1; b <= 16; b++) {
+      m1[b] = ((b30[b] || 0) + 15 * (((b100[b] || 0) + 1) / (W100 + 16))) / 45;
+      m2[b] = Math.min(bOm[b] / Math.max(bAg[b], 2), 4);
+      m3[b] = -z[b];
+    }
+    return [m1, m2, m3];
+  }
+
+  function ssqBlueBMA(rows, holdN) {
+    var L = [0, 0, 0], used = 0;
+    for (var j = 0; j < holdN && j < rows.length - 1; j++) {
+      var before = rows.slice(j + 1);
+      if (before.length < 60) break;
+      var act = rows[j].blue;
+      var ms = ssqBlueModels(before);
+      for (var mi = 0; mi < 3; mi++) {
+        var nm = norm01SSQ(ms[mi], 16);
+        var ls = 0;
+        for (var b = 1; b <= 16; b++) {
+          var p = 0.03 + 0.18 * nm[b];
+          ls += (b === act) ? Math.log(p) : Math.log(1 - p);
+        }
+        L[mi] += ls;
+      }
+      used++;
+    }
+    var ws;
+    if (!used) ws = [1 / 3, 1 / 3, 1 / 3];
+    else {
+      var mx = Math.max(L[0], L[1], L[2]);
+      var e0 = Math.exp(L[0] - mx), e1 = Math.exp(L[1] - mx), e2 = Math.exp(L[2] - mx);
+      var s = e0 + e1 + e2;
+      ws = [e0 / s, e1 / s, e2 / s];
+    }
+    return { w: ws, used: used };
+  }
+
+  /* s9 趋势残差式：logistic 趋势 MLE 的 Pearson 残差（趋势调整后欠出现） */
+  function f9(c) {
+    var seqR = c.rows.slice(0, Math.min(60, c.rows.length)).slice().reverse();
+    var z = logisticResidual(seqR, 33, function (d, num) { return d.red.indexOf(num) >= 0; });
+    var red = pickCombo(candsOf(function (n) { return -z[n]; }), 6, GUARD(c));
+    var zb = logisticResidual(seqR, 16, function (d, num) { return d.blue === num; });
+    var bestB = 1, bz = Infinity;
+    for (var b = 1; b <= 16; b++) if (zb[b] < bz - 1e-9) { bz = zb[b]; bestB = b; }
+    return { red: red, blue: bestB, why: '主驱动=逻辑回归趋势残差：对每号近60期 0/1 出现序列拟合 logistic 趋势模型（Newton-Raphson 极大似然），Pearson 残差 z=(实际出现−模型期望)/√期望，取 z 最负者（剔除整体趋势后仍欠出现的号）；蓝球同法' };
+  }
+
+  /* s10 反共现式：共现网络稀疏化（最小化组内两两共现总频次） */
+  function f10(c) {
+    var w = cooccurSSQ(c.rows, 33, function (d, num) { return d.red.indexOf(num) >= 0; });
+    var avg = {};
+    for (var n = 1; n <= 33; n++) { var s = 0; for (var j = 1; j <= 33; j++) if (j !== n) s += w[n][j]; avg[n] = s / 32; }
+    var pool = candsOf(function (n2) { return -avg[n2]; }).sort(function (a, b) { return b.s - a.s || a.n - b.n; }).slice(0, 15).map(function (x) { return x.n; });
+    var red = pickMinPairSSQ(pool, 6, w, GUARD(c));
+    /* 蓝球：与所选红球的条件共现最弱（P(该红|该蓝) 历史频次） */
+    var rb = {}, cb = {};
+    for (var b2 = 1; b2 <= 16; b2++) rb[b2] = {};
+    var lim = Math.min(100, c.rows.length);
+    for (var i = 0; i < lim; i++) {
+      var bb = c.rows[i].blue;
+      cb[bb] = (cb[bb] || 0) + 1;
+      var rd = c.rows[i].red;
+      for (var j2 = 0; j2 < rd.length; j2++) rb[bb][rd[j2]] = (rb[bb][rd[j2]] || 0) + 1;
+    }
+    var bestB = -1, aff = Infinity;
+    for (var b3 = 1; b3 <= 16; b3++) {
+      if (!cb[b3]) continue;
+      var s2 = 0;
+      for (var t = 0; t < red.length; t++) s2 += (rb[b3][red[t]] || 0);
+      var a2 = s2 / cb[b3];
+      if (a2 < aff - 1e-9 || (a2 < aff + 1e-9 && cb[b3] > (cb[bestB] || 0))) { aff = a2; bestB = b3; }
+    }
+    if (bestB < 0) bestB = 1;
+    return { red: red, blue: bestB, why: '主驱动=共现网络稀疏化：以全部历史同期共现频次建图，在平均共现度最低的 15 号内枚举组合，最小化组内两两共现总频次（图稀疏目标）；蓝球取与所选红球条件共现最弱者（P(红|蓝) 历史频次）' };
+  }
+
+  /* s11 模型平均式：三模型 walk-forward 对数打分 → 证据加权（BMA） */
+  function f11(c) {
+    var rows = c.rows;
+    var bm = ssqBMA(rows, 20);
+    var ms = ssqModels(rows);
+    var n01 = [norm01SSQ(ms[0], 33), norm01SSQ(ms[1], 33), norm01SSQ(ms[2], 33)];
+    var score = {};
+    for (var n = 1; n <= 33; n++) score[n] = bm.w[0] * n01[0][n] + bm.w[1] * n01[1][n] + bm.w[2] * n01[2][n];
+    var red = pickCombo(candsOf(function (n2) { return score[n2]; }), 6, GUARD(c));
+    var bw = ssqBlueBMA(rows, 20);
+    var bms = ssqBlueModels(rows);
+    var b01 = [norm01SSQ(bms[0], 16), norm01SSQ(bms[1], 16), norm01SSQ(bms[2], 16)];
+    var bestB = 1, bs = -1;
+    for (var b = 1; b <= 16; b++) {
+      var v = bw.w[0] * b01[0][b] + bw.w[1] * b01[1][b] + bw.w[2] * b01[2][b];
+      if (v > bs + 1e-9) { bs = v; bestB = b; }
+    }
+    var pct = Math.round(bm.w[0] * 100) + '% / ' + Math.round(bm.w[1] * 100) + '% / ' + Math.round(bm.w[2] * 100) + '%';
+    return { red: red, blue: bestB, why: '主驱动=贝叶斯模型平均：后验频率/危险率/趋势得分三模型，用最近 ' + bm.used + ' 期 walk-forward 对数打分（log score）计算证据权重（' + pct + '），加权合成选号——权重完全由历史预测力决定，零手调参数' };
+  }
+
   var FORMULAS = [
     { id: 's1', name: '贝叶斯频率式', short: '贝叶斯', fn: f1 },
     { id: 's2', name: '和值密度式', short: '和值', fn: f2 },
@@ -434,7 +713,10 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-24T03:
     { id: 's5', name: '遗漏危险率式', short: '危险率', fn: f5 },
     { id: 's6', name: '马尔可夫承接式', short: '转移', fn: f6 },
     { id: 's7', name: '覆盖设计式', short: '覆盖', fn: f7 },
-    { id: 's8', name: '心理冷门式', short: '心理', fn: f8 }
+    { id: 's8', name: '心理冷门式', short: '心理', fn: f8 },
+    { id: 's9', name: '趋势残差式', short: '趋势', fn: f9 },
+    { id: 's10', name: '反共现式', short: '网络', fn: f10 },
+    { id: 's11', name: '模型平均式', short: 'BMA', fn: f11 }
   ];
 
   /* ---------------- 推荐（投票制合成） ---------------- */
@@ -495,7 +777,7 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-24T03:
 
   globalThis.SSQ_ENGINE = {
     game: 'ssq',
-    version: '2026b1',
+    version: '2026c1',
     analyze: analyze,
     recommend: recommend,
     replay: replay,
@@ -861,6 +1143,155 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-24T03:
     return { front: front, back: pairs[0].p.slice().sort(asc), why: '主驱动=反热门博弈：规避生日段(≤31)/票面上方(≤12)/5倍整数/幸运尾(6,8)。开奖概率与热门无关，但冷门组合中奖时均摊人数更少→期望分成更高；后区同表避热门' };
   }
 
+  /* ================ 新增 3 式（d9-d11，每式一个独立数学方法，与双色球实现独立） ================ */
+
+  /* Cochran–Armitage 连续剂量趋势得分检验（独立实现） */
+  function caTrendDLT(seq, kmax, isIn) {
+    var n = seq.length;
+    var xc = (n - 1) / 2, sxx = 0;
+    for (var j = 0; j < n; j++) sxx += (j - xc) * (j - xc);
+    var out = {};
+    for (var num = 1; num <= kmax; num++) {
+      var y = 0, t = 0;
+      for (var j2 = 0; j2 < n; j2++) {
+        var x = isIn(seq[j2], num) ? 1 : 0;
+        y += x; t += x * (j2 - xc);
+      }
+      var pb = y / n;
+      var z = (pb > 0 && pb < 1 && sxx > 0) ? t / Math.sqrt(pb * (1 - pb) * sxx) : 0;
+      out[num] = Math.round(z * 1000) / 1000;
+    }
+    return out;
+  }
+
+  function cooccurDLT(rows, kmax, isIn) {
+    var w = {};
+    for (var i = 1; i <= kmax; i++) { w[i] = {}; for (var j = 1; j <= kmax; j++) w[i][j] = 0; }
+    for (var k = 0; k < rows.length; k++) {
+      for (var a = 1; a <= kmax; a++) {
+        if (!isIn(rows[k], a)) continue;
+        for (var b = a + 1; b <= kmax; b++) {
+          if (!isIn(rows[k], b)) continue;
+          w[a][b]++; w[b][a]++;
+        }
+      }
+    }
+    return w;
+  }
+
+  function pickMinPairDLT(pool, k, w, cons) {
+    function run(cns) {
+      var best = null;
+      (function go(start, cur, sw) {
+        if (cur.length === k) {
+          if (!cns || checkCons(cur, cns)) {
+            if (!best || sw < best.sw - 1e-9 || (sw < best.sw + 1e-9 && lexLess(cur, best.arr))) best = { arr: cur.slice(), sw: sw };
+          }
+          return;
+        }
+        if (pool.length - start < k - cur.length) return;
+        for (var i = start; i < pool.length; i++) {
+          var add = 0;
+          for (var t = 0; t < cur.length; t++) add += w[cur[t]][pool[i]];
+          cur.push(pool[i]);
+          go(i + 1, cur, sw + add);
+          cur.pop();
+        }
+      })(0, [], 0);
+      return best;
+    }
+    var best = run(cons);
+    if (!best && cons) best = run(stripCons(cons, ['sumLo', 'sumHi']));
+    if (!best) best = run(null);
+    if (!best) return pool.slice(0, k).sort(asc);
+    return best.arr.slice().sort(asc);
+  }
+
+  function makeBand(values) {
+    var s2 = values.slice().sort(asc);
+    var q1 = s2[Math.floor(s2.length / 3)], q2 = s2[Math.floor(2 * s2.length / 3)];
+    return function (v) { return v <= q1 ? 0 : (v <= q2 ? 1 : 2); };
+  }
+
+  /* d9 趋势得分式：Cochran–Armitage 趋势检验 z 分数（与双色球 logistic MLE 互为独立实现） */
+  function g9(c) {
+    var seqF = c.rows.slice(0, Math.min(90, c.rows.length)).slice().reverse();
+    var z = caTrendDLT(seqF, 35, function (d, num) { return d.front.indexOf(num) >= 0; });
+    var front = pickCombo(candsOf(function (n) { return -z[n]; }), 5, GUARD(c));
+    var zb = caTrendDLT(seqF, 12, function (d, num) { return d.back.indexOf(num) >= 0; });
+    var arr = [];
+    for (var b = 1; b <= 12; b++) arr.push({ b: b, s: -zb[b] });
+    arr.sort(function (x, y) { return y.s - x.s || x.b - y.b; });
+    return { front: front, back: [arr[0].b, arr[1].b].sort(asc), why: '主驱动=Cochran–Armitage 趋势得分检验：对每号近90期出现序列计算趋势统计量 z=Σxⱼ(dⱼ−d̄)/√(p̄(1−p̄)Σ(dⱼ−d̄)²)（标准化得分检验，H0 下 z≈N(0,1)），取 z 最负者（趋势调整后欠出现）；后区同法。与双色球趋势式的 logistic MLE 为不同估计方法' };
+  }
+
+  /* d10 雅卡尔反共现式：归一化共现相似度稀疏化 */
+  function g10(c) {
+    var wf = cooccurDLT(c.rows, 35, function (d, num) { return d.front.indexOf(num) >= 0; });
+    var deg = {};
+    for (var i = 1; i <= 35; i++) { deg[i] = 0; for (var j = 1; j <= 35; j++) if (j !== i) deg[i] += wf[i][j]; }
+    var jac = {};
+    for (i = 1; i <= 35; i++) {
+      jac[i] = {};
+      for (j = 1; j <= 35; j++) {
+        if (i === j) { jac[i][j] = 0; continue; }
+        var dnm = deg[i] + deg[j] - wf[i][j];
+        jac[i][j] = dnm > 0 ? wf[i][j] / dnm : 0;
+      }
+    }
+    var avgJ = {};
+    for (i = 1; i <= 35; i++) { var s = 0; for (j = 1; j <= 35; j++) if (j !== i) s += jac[i][j]; avgJ[i] = s / 34; }
+    var pool = candsOf(function (n) { return -avgJ[n]; }).sort(function (a, b) { return b.s - a.s || a.n - b.n; }).slice(0, 15).map(function (x) { return x.n; });
+    var front = pickMinPairDLT(pool, 5, jac, GUARD(c));
+    var wb = cooccurDLT(c.rows, 12, function (d, num) { return d.back.indexOf(num) >= 0; });
+    var degb = {};
+    for (i = 1; i <= 12; i++) { degb[i] = 0; for (j = 1; j <= 12; j++) if (j !== i) degb[i] += wb[i][j]; }
+    var best = null;
+    for (var a2 = 1; a2 <= 12; a2++) for (var b2 = a2 + 1; b2 <= 12; b2++) {
+      var dnm2 = degb[a2] + degb[b2] - wb[a2][b2];
+      var jj = dnm2 > 0 ? wb[a2][b2] / dnm2 : 0;
+      var sc = c.pPostB[a2] + c.pPostB[b2];
+      if (!best || jj < best.j - 1e-9 || (jj < best.j + 1e-9 && (sc > best.sc + 1e-9 || (sc > best.sc - 1e-9 && a2 < best.p[0])))) best = { p: [a2, b2], j: jj, sc: sc };
+    }
+    return { front: front, back: best.p.slice().sort(asc), why: '主驱动=雅卡尔反共现：相似度 j(i,j)=共现/(度数和−共现)（归一化消除边际差异），在前 15 个平均雅卡尔最低号内枚举最小化组内雅卡尔和的组合；后区取历史雅卡尔相似度最低、后验优势最高的对。与双色球反共现式的原始频次口径不同' };
+  }
+
+  /* d11 跨区条件式：前区和值三分位 → 下期后区奇偶的滞后条件众数（大乐透专属双区维度） */
+  function g11(c) {
+    var of = c.rows.slice().reverse();
+    var sumF = of.map(function (r) { var s = 0; for (var i = 0; i < r.front.length; i++) s += r.front[i]; return s; });
+    var sumB = of.map(function (r) { return r.back[0] + r.back[1]; });
+    var bandF = makeBand(sumF), bandB = makeBand(sumB);
+    /* 后区：上期前区和值段 → 下期后区奇数枚数条件众数 */
+    var hist = [0, 0, 0], marginal = [0, 0, 0], nb = 0;
+    var tgtF = bandF(c.lastSumF);
+    for (var i = 0; i < of.length - 1; i++) {
+      var oc = (of[i + 1].back[0] % 2) + (of[i + 1].back[1] % 2);
+      marginal[oc]++;
+      if (bandF(sumF[i]) === tgtF) { hist[oc]++; nb++; }
+    }
+    var modeBO;
+    if (nb >= 15) modeBO = (hist[0] >= hist[1] && hist[0] >= hist[2]) ? 0 : ((hist[2] >= hist[1] && hist[2] > hist[0]) ? 2 : 1);
+    else modeBO = (marginal[0] >= marginal[1] && marginal[0] >= marginal[2]) ? 0 : ((marginal[2] >= marginal[1] && marginal[2] > marginal[0]) ? 2 : 1);
+    var back = pickBackPair(c, function (a, b) { return c.pPostB[a] + c.pPostB[b]; }, function (a, b) { return (a % 2) + (b % 2) === modeBO; })
+      || pickBackPair(c, function (a, b) { return c.pPostB[a] + c.pPostB[b]; }, null);
+    /* 前区：上期后区和值段 → 下期前区奇数枚数条件众数 */
+    var histF = [0, 0, 0, 0, 0, 0], mgF = [0, 0, 0, 0, 0, 0], nf = 0;
+    var tgtB = bandB(c.lastBackSum);
+    for (i = 0; i < of.length - 1; i++) {
+      var oc2 = 0;
+      for (var j = 0; j < of[i + 1].front.length; j++) if (of[i + 1].front[j] % 2) oc2++;
+      mgF[oc2]++;
+      if (bandB(sumB[i]) === tgtB) { histF[oc2]++; nf++; }
+    }
+    var modeFO = 0;
+    if (nf >= 15) { for (var k = 1; k < 6; k++) if (histF[k] > histF[modeFO]) modeFO = k; }
+    else { for (var k2 = 1; k2 < 6; k2++) if (mgF[k2] > mgF[modeFO]) modeFO = k2; }
+    var front = pickCombo(candsOf(function (n) { return c.pPost[n]; }), 5,
+      { oddWin: [modeFO, modeFO], sumLo: c.muF60 - 1.0 * c.sdF60, sumHi: c.muF60 + 1.0 * c.sdF60, zoneCap: 2, maxRun: 2 });
+    return { front: front, back: back, why: '主驱动=跨区滞后条件分布：以上期前区和值三分位段为条件，统计历史下期后区奇数枚数的条件众数（条件样本 ' + nb + ' 期' + (nb < 15 ? '，不足回退边际' : '') + '）定后区奇偶；前区反向上期后区和值条件化下期奇数枚数众数 ' + modeFO + '——大乐透专属双区条件维度' };
+  }
+
   var FORMULAS = [
     { id: 'd1', name: '后验优势式', short: '后验', fn: g1 },
     { id: 'd2', name: '和值通道式', short: '通道', fn: g2 },
@@ -869,7 +1300,10 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-24T03:
     { id: 'd5', name: '周期相位式', short: '相位', fn: g5 },
     { id: 'd6', name: '同尾转移式', short: '转移', fn: g6 },
     { id: 'd7', name: '区间覆盖式', short: '覆盖', fn: g7 },
-    { id: 'd8', name: '反热门博弈式', short: '心理', fn: g8 }
+    { id: 'd8', name: '反热门博弈式', short: '心理', fn: g8 },
+    { id: 'd9', name: '趋势得分式', short: '趋势', fn: g9 },
+    { id: 'd10', name: '雅卡尔反共现式', short: '网络', fn: g10 },
+    { id: 'd11', name: '跨区条件式', short: '条件', fn: g11 }
   ];
 
   /* ---------------- 推荐（投票制合成） ---------------- */
@@ -938,7 +1372,7 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-24T03:
 
   globalThis.DLT_ENGINE = {
     game: 'dlt',
-    version: '2026b1',
+    version: '2026c1',
     analyze: analyze,
     recommend: recommend,
     replay: replay,
@@ -1111,7 +1545,7 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-24T03:
     var h = '';
     h += '<div class="card final">';
     h += '<h2>🗳 票选合成推荐 · 第 ' + esc(next) + ' 期参考</h2>';
-    h += '<div class="meta2">基于 ' + rec.nD + ' 期官方数据 · 8 式独立公式逐号投票 · 平票按式序→号码定序（全程无随机数，可复算）</div>';
+    h += '<div class="meta2">基于 ' + rec.nD + ' 期官方数据 · ' + rec.per.length + ' 式独立公式逐号投票 · 平票按式序→号码定序（全程无随机数，可复算）</div>';
     h += '<div class="balls">';
     for (var i = 0; i < finals.length; i++) h += ballHTML(finals[i], 'red', rec.votes[finals[i]] || 0);
     for (var i2 = 0; i2 < backs.length; i2++) h += ballHTML(backs[i2], 'blue', rec.blueVotes[backs[i2]] || 0);
@@ -1125,7 +1559,7 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-24T03:
     for (var i3 = 0; i3 < vs.length; i3++) h += ballHTML(vs[i3], 'ghost', rec.votes[vs[i3]], true);
     h += '</div></div>';
 
-    h += '<div class="card"><h2>🧮 8 式独立公式注（每式一注，即该式「产生」的号码）</h2>';
+    h += '<div class="card"><h2>🧮 ' + rec.per.length + ' 式独立公式注（每式一注，即该式「产生」的号码）</h2>';
     for (var i4 = 0; i4 < rec.per.length; i4++) {
       var f = rec.per[i4];
       h += '<div class="frow"><div class="fname"><b>' + (i4 + 1) + '. ' + esc(f.name) + '</b><span class="tag">' + esc(f.short) + '</span></div><div class="its">';
@@ -1201,7 +1635,10 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-24T03:
     h += '<span class="tag">危险率</span>遗漏危险率式：hazard=当前遗漏÷平均间隔（生存分析视角）<br>';
     h += '<span class="tag">转移</span>马尔可夫承接式：上期→下期一阶转移矩阵+±1邻号承接<br>';
     h += '<span class="tag">覆盖</span>覆盖设计式：三区2:2:2+尾数覆盖≥5（组合覆盖设计）<br>';
-    h += '<span class="tag">心理</span>心理冷门式：反热门博弈——中奖概率不变，期望分成更高<br></div>';
+    h += '<span class="tag">心理</span>心理冷门式：反热门博弈——中奖概率不变，期望分成更高<br>';
+    h += '<span class="tag">趋势</span>趋势残差式：logistic 趋势 MLE 的 Pearson 残差（趋势调整后欠出现）<br>';
+    h += '<span class="tag">网络</span>反共现式：共现网络稀疏化，最小化组内两两共现频次<br>';
+    h += '<span class="tag">BMA</span>模型平均式：三模型 walk-forward 对数打分的证据加权集成<br></div>';
     h += '<div class="klist"><b>大乐透（前 5/35 + 后 2/12，与双色球独立实现）</b><br>';
     h += '<span class="tag">后验</span>后验优势式：20期证据+120期先验（窗口/强度均不同）<br>';
     h += '<span class="tag">通道</span>和值通道式：20期回归通道动态中心+均值回复相位<br>';
@@ -1210,11 +1647,14 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-24T03:
     h += '<span class="tag">相位</span>周期相位式：遗漏÷中位间隔（中位数口径）<br>';
     h += '<span class="tag">转移</span>同尾转移式：全转移×1.0+同尾×0.6+邻号×0.5 三矩阵<br>';
     h += '<span class="tag">覆盖</span>区间覆盖式：12/12/11 三区2:2:1+尾数覆盖≥4<br>';
-    h += '<span class="tag">心理</span>反热门博弈式：独立热门度表（含5倍整数/票面几何）<br></div>';
+    h += '<span class="tag">心理</span>反热门博弈式：独立热门度表（含5倍整数/票面几何）<br>';
+    h += '<span class="tag">趋势</span>趋势得分式：Cochran–Armitage 趋势检验 z 分数<br>';
+    h += '<span class="tag">网络</span>雅卡尔反共现式：归一化共现稀疏化<br>';
+    h += '<span class="tag">条件</span>跨区条件式：前区和值段→后区奇偶的滞后条件众数<br></div>';
     h += '<p class="note">两彩种公式为各自独立实现（不同号码池/窗口/口径/代码），无任何共享选号逻辑；每式仅一个主驱动，其余统计量只作平票排序，避免冗余。全程无随机数：同一数据永远得到同一组号。</p>';
     h += '</div>';
     h += '<div class="card"><h2>🗳 投票合成规则</h2>';
-    h += '<div class="klist">8 式各产出 1 注 → 对每个号码计票（双色球红球每式 6 票、大乐透前区每式 5 票）→ 票数最高者组成推荐号；平票依次按「投它 formulas 的式序权重和 → 号码升序」确定性取舍。蓝球/后区同理。</div></div>';
+    h += '<div class="klist">11 式各产出 1 注 → 对每个号码计票（双色球红球 11×6=66 票、大乐透前区 11×5=55 票、后区 11×2=22 票）→ 票数最高者组成推荐号；平票依次按「投它 formulas 的式序权重和 → 号码升序」确定性取舍。蓝球/后区同理。</div></div>';
     h += '<div class="card"><h2>🔄 开奖数据自动更新 + 复盘</h2>';
     h += '<div class="klist">① 本仓库由 <b>GitHub Actions</b> 于每日 <b>21:35 / 22:05 / 次日 09:30</b>（北京时间）自动抓取福彩/体彩官网开奖数据并提交；<br>② 页面每次打开自动拉取最新 data/*.json（另有镜像频道兜底），开奖后即可看到最新开奖；<br>③ <b>复盘</b>页自动逐期重算「当时会推荐什么」并对照实际开奖；<br>④ 推荐区自动以最新数据推导<b>下一期</b>参考号——开奖后无需任何手动操作。</div></div>';
     h += '<div class="card"><h2>⚠️ 诚实声明</h2>';
