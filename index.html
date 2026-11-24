@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1020">
+<meta name="description" content="双色球·大乐透 8式独立科学公式投票选号，开奖后自动同步数据并复盘">
+<title>双色球·大乐透 公式投票选号</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{background:#0b1020;color:#dbe4ff;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",system-ui,sans-serif}
+#app{max-width:640px;margin:0 auto;padding:0 12px 46px}
+header{padding:14px 0 4px}
+.ttl{font-size:20px;font-weight:800;letter-spacing:.5px}
+.ttl .sub{font-size:12px;color:#8fa3c8;font-weight:600;margin-left:6px}
+.meta{font-size:11px;color:#7f92b5;margin-top:6px;line-height:1.7}
+.meta b{color:#c9d7f5}
+.hbtns{margin-top:8px;display:flex;gap:8px}
+#btnRefresh{background:#1b2547;color:#9fc0ff;border:1px solid #2a3a6e;border-radius:8px;padding:7px 16px;font-size:13px;font-weight:600}
+#btnRefresh:active{background:#243262}
+nav#tabs{display:flex;gap:6px;position:sticky;top:0;z-index:9;background:rgba(11,16,32,.94);backdrop-filter:blur(8px);padding:10px 0 8px}
+nav#tabs button{flex:1;background:#131b36;border:1px solid #223059;color:#9fb0d0;border-radius:10px;padding:9px 0;font-size:13px;font-weight:600}
+nav#tabs button.on{background:#274079;color:#fff;border-color:#3f6ac9}
+.card{background:#121a33;border:1px solid #1f2c55;border-radius:14px;padding:14px;margin:12px 0}
+.card h2{margin:0 0 8px;font-size:15px;color:#eaf1ff}
+.meta2{font-size:11px;color:#8296bb;line-height:1.7;margin:2px 0 6px}
+.balls{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;padding:8px 0 18px}
+.balls.hot{padding:4px 0 10px;gap:8px}
+.ball{width:44px;height:44px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:17px;position:relative;text-shadow:0 1px 2px rgba(0,0,0,.4)}
+.ball.red{background:radial-gradient(circle at 30% 30%,#ff8585,#dc2626 62%,#991b1b)}
+.ball.blue{background:radial-gradient(circle at 30% 30%,#8ab8ff,#2563eb 62%,#1e40af)}
+.ball.ghost{background:radial-gradient(circle at 30% 30%,#5c6b94,#39456b 62%,#2a3352)}
+.ball i{position:absolute;bottom:-15px;left:50%;transform:translateX(-50%);font-style:normal;font-size:10px;color:#8fa3c8;font-weight:600;white-space:nowrap}
+.ball.sm{width:30px;height:30px;font-size:12px}
+.ball.sm i{bottom:-13px;font-size:9px}
+.final{text-align:center;background:linear-gradient(160deg,#141d3c,#101629)}
+.frow{padding:10px 0;border-bottom:1px dashed #1e2a52}
+.frow:last-child{border-bottom:none}
+.fname{font-size:13px;color:#dbe4ff;margin-bottom:6px}
+.fname .tag{display:inline-block;margin-left:6px;background:#1c2950;color:#8fb2ff;border-radius:6px;padding:1px 7px;font-size:10px;font-weight:700}
+.its{display:flex;gap:7px;flex-wrap:wrap}
+.its .ball{width:32px;height:32px;font-size:13px}
+.why{font-size:11px;color:#8296bb;line-height:1.7;margin-top:6px}
+table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+th,td{padding:7px 4px;border-bottom:1px solid #1e2a52;text-align:center;color:#c6d2ec}
+th{color:#8fa3c8;font-weight:600;font-size:11px}
+td.mono{font-size:11px;letter-spacing:.5px}
+.bluetxt{color:#7fb0ff}
+.hitbadge{display:inline-block;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:700}
+.h0{background:#2a2f45;color:#8b93ad}
+.h1{background:#3b2f1d;color:#fbbf24}
+.h2{background:#14432f;color:#34d399}
+.h3{background:#166534;color:#a7f3d0}
+.subtabs{display:flex;gap:8px;margin:12px 0 2px}
+.subtabs button{flex:1;background:#131b36;border:1px solid #223059;color:#9fb0d0;border-radius:10px;padding:8px 0;font-size:13px;font-weight:600}
+.subtabs button.on{background:#274079;color:#fff;border-color:#3f6ac9}
+.rankrow{display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:1px dashed #1e2a52;color:#c6d2ec}
+.rankrow b{color:#eaf1ff}
+.note{font-size:11px;color:#7d90b6;line-height:1.8;margin:8px 0 0}
+.klist{font-size:12px;color:#a9b8d8;line-height:1.9;margin:4px 0}
+.klist b{color:#eaf1ff}
+.klist .tag{display:inline-block;margin-right:6px;background:#1c2950;color:#8fb2ff;border-radius:6px;padding:1px 7px;font-size:10px;font-weight:700;vertical-align:1px}
+footer{font-size:10px;color:#5e6f94;text-align:center;padding:20px 0 0;line-height:1.8}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#233055;color:#eaf1ff;padding:9px 18px;border-radius:10px;font-size:13px;box-shadow:0 6px 24px rgba(0,0,0,.5);z-index:99;max-width:86vw;transition:opacity .3s}
+#toast.hide{opacity:0;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="ttl">🎯 公式投票选号<span class="sub">双色球 · 大乐透</span></div>
+    <div class="meta" id="metaLine">数据加载中…</div>
+    <div class="hbtns"><button id="btnRefresh">⟳ 检查更新</button></div>
+  </header>
+  <nav id="tabs">
+    <button data-tab="ssq" class="on">🔴 双色球</button>
+    <button data-tab="dlt">🔵 大乐透</button>
+    <button data-tab="replay">📋 复盘</button>
+    <button data-tab="help">📖 说明</button>
+  </nav>
+  <main id="view"></main>
+  <footer>开奖为独立随机事件 · 统计工具不改变中奖概率 · 仅供娱乐参考<br>数据源：福彩官网 / 体彩官网 · GitHub Actions 开奖后自动同步</footer>
+</div>
+<div id="toast" class="hide"></div>
+<script>
+window.BAKED_SSQ = {"game":"ssq","source":"official","updatedAt":"2026-11-24T03:16:34Z","rows":[{"issue":"2026134","date":"2026-11-22","red":[4,5,10,17,21,32],"blue":8},{"issue":"2026133","date":"2026-11-19","red":[7,10,11,14,21,26],"blue":13},{"issue":"2026132","date":"2026-11-17","red":[5,9,13,17,18,21],"blue":11},{"issue":"2026131","date":"2026-11-15","red":[1,10,19,26,31,33],"blue":15},{"issue":"2026130","date":"2026-11-12","red":[1,2,6,16,20,28],"blue":2},{"issue":"2026129","date":"2026-11-10","red":[3,9,16,20,25,30],"blue":5},{"issue":"2026128","date":"2026-11-08","red":[5,6,10,25,27,30],"blue":11},{"issue":"2026127","date":"2026-11-05","red":[13,14,19,25,29,32],"blue":12},{"issue":"2026126","date":"2026-11-03","red":[9,10,13,22,29,32],"blue":12},{"issue":"2026125","date":"2026-11-01","red":[4,6,10,15,26,27],"blue":11},{"issue":"2026124","date":"2026-10-29","red":[3,11,17,22,23,29],"blue":9},{"issue":"2026123","date":"2026-10-27","red":[4,5,20,21,26,30],"blue":12},{"issue":"2026122","date":"2026-10-25","red":[1,2,4,17,19,30],"blue":9},{"issue":"2026121","date":"2026-10-22","red":[2,7,20,24,26,30],"blue":2},{"issue":"2026120","date":"2026-10-20","red":[13,14,16,18,20,31],"blue":3},{"issue":"2026119","date":"2026-10-18","red":[12,22,23,25,27,30],"blue":4},{"issue":"2026118","date":"2026-10-15","red":[5,21,22,23,28,31],"blue":14},{"issue":"2026117","date":"2026-10-13","red":[4,11,14,22,26,27],"blue":4},{"issue":"2026116","date":"2026-10-11","red":[10,19,24,27,28,33],"blue":12},{"issue":"2026115","date":"2026-10-08","red":[4,13,14,18,22,24],"blue":3},{"issue":"2026114","date":"2026-10-06","red":[7,18,23,24,29,31],"blue":10},{"issue":"2026113","date":"2026-09-29","red":[3,4,20,24,29,30],"blue":11},{"issue":"2026112","date":"2026-09-27","red":[1,4,11,12,17,29],"blue":11},{"issue":"2026111","date":"2026-09-24","red":[6,7,14,22,31,32],"blue":5},{"issue":"2026110","date":"2026-09-22","red":[2,5,16,19,26,32],"blue":14},{"issue":"2026109","date":"2026-09-20","red":[9,12,15,26,30,33],"blue":6},{"issue":"2026108","date":"2026-09-17","red":[6,11,13,14,20,28],"blue":16},{"issue":"2026107","date":"2026-09-15","red":[1,5,9,17,24,33],"blue":4},{"issue":"2026106","date":"2026-09-13","red":[6,11,13,14,22,30],"blue":14},{"issue":"2026105","date":"2026-09-10","red":[2,4,13,14,15,30],"blue":8},{"issue":"2026104","date":"2026-09-08","red":[11,12,13,19,20,31],"blue":3},{"issue":"2026103","date":"2026-09-06","red":[4,11,20,27,28,30],"blue":15},{"issue":"2026102","date":"2026-09-03","red":[3,4,10,13,16,25],"blue":9},{"issue":"2026101","date":"2026-09-01","red":[5,6,8,9,24,25],"blue":12},{"issue":"2026100","date":"2026-08-30","red":[3,4,9,13,22,31],"blue":4},{"issue":"2026099","date":"2026-08-27","red":[1,12,14,18,30,31],"blue":2},{"issue":"2026098","date":"2026-08-25","red":[8,16,18,22,25,26],"blue":7},{"issue":"2026097","date":"2026-08-23","red":[5,16,24,26,29,30],"blue":2},{"issue":"2026096","date":"2026-08-20","red":[1,4,16,22,26,31],"blue":4},{"issue":"2026095","date":"2026-08-18","red":[4,6,14,21,22,33],"blue":16},{"issue":"2026094","date":"2026-08-16","red":[6,13,15,17,24,25],"blue":1},{"issue":"2026093","date":"2026-08-13","red":[5,8,15,20,21,24],"blue":9},{"issue":"2026092","date":"2026-08-11","red":[9,11,12,25,30,33],"blue":11},{"issue":"2026091","date":"2026-08-09","red":[2,13,14,16,20,24],"blue":5},{"issue":"2026090","date":"2026-08-06","red":[2,4,15,23,25,27],"blue":3},{"issue":"2026089","date":"2026-08-04","red":[5,18,23,24,27,33],"blue":3},{"issue":"2026088","date":"2026-08-02","red":[6,7,11,18,22,33],"blue":5},{"issue":"2026087","date":"2026-07-30","red":[4,6,10,18,23,31],"blue":11},{"issue":"2026086","date":"2026-07-28","red":[2,5,14,25,30,32],"blue":5},{"issue":"2026085","date":"2026-07-26","red":[6,9,13,17,24,28],"blue":15},{"issue":"2026084","date":"2026-07-23","red":[1,5,6,10,12,16],"blue":5},{"issue":"2026083","date":"2026-07-21","red":[7,14,15,23,28,33],"blue":3},{"issue":"2026082","date":"2026-07-19","red":[5,7,10,14,21,28],"blue":4},{"issue":"2026081","date":"2026-07-16","red":[6,10,12,15,24,27],"blue":12},{"issue":"2026080","date":"2026-07-14","red":[4,5,11,19,27,32],"blue":1},{"issue":"2026079","date":"2026-07-12","red":[1,11,17,22,24,29],"blue":4},{"issue":"2026078","date":"2026-07-09","red":[7,11,14,16,27,28],"blue":6},{"issue":"2026077","date":"2026-07-07","red":[1,4,5,14,18,25],"blue":4},{"issue":"2026076","date":"2026-07-05","red":[1,3,19,20,24,25],"blue":7},{"issue":"2026075","date":"2026-07-02","red":[8,12,18,21,24,30],"blue":1},{"issue":"2026074","date":"2026-06-30","red":[2,23,24,26,28,32],"blue":4},{"issue":"2026073","date":"2026-06-28","red":[9,10,13,16,19,21],"blue":8},{"issue":"2026072","date":"2026-06-25","red":[7,8,12,15,17,21],"blue":1},{"issue":"2026071","date":"2026-06-23","red":[3,8,19,25,31,33],"blue":5},{"issue":"2026070","date":"2026-06-21","red":[3,6,8,14,26,27],"blue":8},{"issue":"2026069","date":"2026-06-18","red":[12,14,16,17,18,32],"blue":8},{"issue":"2026068","date":"2026-06-16","red":[3,5,16,18,29,32],"blue":4},{"issue":"2026067","date":"2026-06-14","red":[4,19,27,29,30,32],"blue":13},{"issue":"2026066","date":"2026-06-11","red":[5,11,21,23,24,29],"blue":16},{"issue":"2026065","date":"2026-06-09","red":[7,8,16,24,30,32],"blue":2},{"issue":"2026064","date":"2026-06-07","red":[1,9,15,18,29,33],"blue":15},{"issue":"2026063","date":"2026-06-04","red":[2,8,25,28,30,31],"blue":2},{"issue":"2026062","date":"2026-06-02","red":[2,4,7,14,28,29],"blue":9},{"issue":"2026061","date":"2026-05-31","red":[1,4,5,15,23,28],"blue":7},{"issue":"2026060","date":"2026-05-28","red":[7,9,10,16,22,27],"blue":11},{"issue":"2026059","date":"2026-05-26","red":[8,16,26,28,29,30],"blue":15},{"issue":"2026058","date":"2026-05-24","red":[1,4,7,21,29,30],"blue":1},{"issue":"2026057","date":"2026-05-21","red":[1,10,22,24,28,30],"blue":7},{"issue":"2026056","date":"2026-05-19","red":[10,19,21,22,31,33],"blue":5},{"issue":"2026055","date":"2026-05-17","red":[4,11,24,25,32,33],"blue":13},{"issue":"2026054","date":"2026-05-14","red":[13,20,25,29,30,33],"blue":2},{"issue":"2026053","date":"2026-05-12","red":[1,2,3,8,13,14],"blue":2},{"issue":"2026052","date":"2026-05-10","red":[1,3,11,22,26,31],"blue":11},{"issue":"2026051","date":"2026-05-07","red":[9,14,15,16,29,30],"blue":10},{"issue":"2026050","date":"2026-05-05","red":[6,9,25,27,28,30],"blue":3},{"issue":"2026049","date":"2026-05-03","red":[3,4,14,15,18,20],"blue":2},{"issue":"2026048","date":"2026-04-30","red":[9,15,18,24,28,33],"blue":1},{"issue":"2026047","date":"2026-04-28","red":[7,16,21,24,27,30],"blue":7},{"issue":"2026046","date":"2026-04-26","red":[2,9,10,24,31,33],"blue":16},{"issue":"2026045","date":"2026-04-23","red":[4,11,15,17,24,30],"blue":15},{"issue":"2026044","date":"2026-04-21","red":[2,14,17,18,22,30],"blue":1},{"issue":"2026043","date":"2026-04-19","red":[6,9,14,16,25,32],"blue":16},{"issue":"2026042","date":"2026-04-16","red":[2,7,12,19,24,31],"blue":10},{"issue":"2026041","date":"2026-04-14","red":[2,8,10,17,19,24],"blue":13},{"issue":"2026040","date":"2026-04-12","red":[3,4,14,22,23,33],"blue":4},{"issue":"2026039","date":"2026-04-09","red":[8,17,18,21,25,30],"blue":5},{"issue":"2026038","date":"2026-04-07","red":[1,2,13,23,25,27],"blue":5},{"issue":"2026037","date":"2026-04-05","red":[11,22,27,29,31,33],"blue":12},{"issue":"2026036","date":"2026-04-02","red":[6,10,12,15,22,28],"blue":8},{"issue":"2026035","date":"2026-03-31","red":[2,6,12,24,25,32],"blue":2},{"issue":"2026034","date":"2026-03-29","red":[1,3,7,13,22,23],"blue":7},{"issue":"2026033","date":"2026-03-26","red":[3,6,13,21,28,29],"blue":6},{"issue":"2026032","date":"2026-03-24","red":[1,3,11,18,31,33],"blue":2},{"issue":"2026031","date":"2026-03-22","red":[3,10,12,13,18,33],"blue":8},{"issue":"2026030","date":"2026-03-19","red":[10,11,14,19,22,24],"blue":4},{"issue":"2026029","date":"2026-03-17","red":[6,19,22,23,28,31],"blue":5},{"issue":"2026028","date":"2026-03-15","red":[2,6,9,17,25,28],"blue":15},{"issue":"2026027","date":"2026-03-12","red":[2,13,17,18,25,26],"blue":13},{"issue":"2026026","date":"2026-03-10","red":[2,9,16,22,25,29],"blue":3},{"issue":"2026025","date":"2026-03-08","red":[2,3,15,20,23,24],"blue":10},{"issue":"2026024","date":"2026-03-05","red":[1,2,13,21,23,29],"blue":14},{"issue":"2026023","date":"2026-03-03","red":[1,3,8,10,23,29],"blue":6},{"issue":"2026022","date":"2026-03-01","red":[15,18,23,25,28,32],"blue":11},{"issue":"2026021","date":"2026-02-26","red":[3,13,25,26,30,31],"blue":4},{"issue":"2026020","date":"2026-02-24","red":[1,13,14,21,24,30],"blue":2},{"issue":"2026019","date":"2026-02-12","red":[7,8,16,17,18,30],"blue":1},{"issue":"2026018","date":"2026-02-10","red":[11,15,17,22,25,30],"blue":7},{"issue":"2026017","date":"2026-02-08","red":[1,3,5,18,29,32],"blue":4},{"issue":"2026016","date":"2026-02-05","red":[4,5,9,10,27,30],"blue":13},{"issue":"2026015","date":"2026-02-03","red":[7,10,13,22,27,31],"blue":12},{"issue":"2026014","date":"2026-02-01","red":[7,13,19,22,26,32],"blue":1},{"issue":"2026013","date":"2026-01-29","red":[4,9,12,13,16,20],"blue":1},{"issue":"2026012","date":"2026-01-27","red":[3,5,7,16,20,24],"blue":8},{"issue":"2026011","date":"2026-01-25","red":[2,3,4,20,31,32],"blue":4},{"issue":"2026010","date":"2026-01-22","red":[4,9,10,15,19,26],"blue":12},{"issue":"2026009","date":"2026-01-20","red":[3,6,13,19,23,25],"blue":10},{"issue":"2026008","date":"2026-01-18","red":[6,9,16,27,31,33],"blue":10},{"issue":"2026007","date":"2026-01-15","red":[9,13,19,27,29,30],"blue":1},{"issue":"2026006","date":"2026-01-13","red":[2,6,22,23,24,28],"blue":15},{"issue":"2026005","date":"2026-01-11","red":[1,20,22,27,30,33],"blue":10},{"issue":"2026004","date":"2026-01-08","red":[3,7,8,9,18,32],"blue":10},{"issue":"2026003","date":"2026-01-06","red":[5,6,9,21,28,30],"blue":16},{"issue":"2026002","date":"2026-01-04","red":[1,5,7,18,30,32],"blue":2},{"issue":"2026001","date":"2026-01-01","red":[2,6,11,12,13,33],"blue":15},{"issue":"2025151","date":"2025-12-30","red":[8,9,14,22,28,30],"blue":4},{"issue":"2025150","date":"2025-12-28","red":[6,13,17,19,24,31],"blue":8},{"issue":"2025149","date":"2025-12-25","red":[1,2,4,6,22,30],"blue":10},{"issue":"2025148","date":"2025-12-23","red":[3,4,9,10,15,22],"blue":16},{"issue":"2025147","date":"2025-12-21","red":[1,3,5,8,22,33],"blue":8},{"issue":"2025146","date":"2025-12-18","red":[5,7,12,24,26,28],"blue":2},{"issue":"2025145","date":"2025-12-16","red":[11,12,15,18,25,32],"blue":14},{"issue":"2025144","date":"2025-12-14","red":[1,8,15,20,26,33],"blue":13},{"issue":"2025143","date":"2025-12-11","red":[2,9,12,13,15,24],"blue":3},{"issue":"2025142","date":"2025-12-09","red":[2,13,15,23,27,31],"blue":16},{"issue":"2025141","date":"2025-12-07","red":[2,4,5,10,12,13],"blue":6},{"issue":"2025140","date":"2025-12-04","red":[1,3,4,12,18,24],"blue":5},{"issue":"2025139","date":"2025-12-02","red":[2,5,17,22,30,33],"blue":6},{"issue":"2025138","date":"2025-11-30","red":[10,13,14,23,24,27],"blue":15},{"issue":"2025137","date":"2025-11-27","red":[2,8,11,23,27,29],"blue":5},{"issue":"2025136","date":"2025-11-25","red":[8,10,14,23,28,32],"blue":12}]};
+window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-24T03:16:34Z","rows":[{"issue":"26134","date":"2026-11-23","front":[4,15,17,24,31],"back":[6,9]},{"issue":"26133","date":"2026-11-21","front":[10,11,25,30,32],"back":[9,10]},{"issue":"26132","date":"2026-11-18","front":[2,9,16,26,35],"back":[6,11]},{"issue":"26131","date":"2026-11-16","front":[2,11,18,19,29],"back":[4,7]},{"issue":"26130","date":"2026-11-14","front":[1,7,11,27,29],"back":[2,6]},{"issue":"26129","date":"2026-11-11","front":[2,12,14,17,33],"back":[7,8]},{"issue":"26128","date":"2026-11-09","front":[3,13,20,25,34],"back":[9,12]},{"issue":"26127","date":"2026-11-07","front":[5,6,17,18,27],"back":[3,12]},{"issue":"26126","date":"2026-11-04","front":[5,11,17,25,34],"back":[4,6]},{"issue":"26125","date":"2026-11-02","front":[12,13,23,25,29],"back":[7,10]},{"issue":"26124","date":"2026-10-31","front":[12,14,18,22,27],"back":[1,9]},{"issue":"26123","date":"2026-10-28","front":[13,18,19,20,28],"back":[9,11]},{"issue":"26122","date":"2026-10-26","front":[2,14,21,22,24],"back":[2,12]},{"issue":"26121","date":"2026-10-24","front":[6,8,19,24,25],"back":[1,8]},{"issue":"26120","date":"2026-10-21","front":[1,6,10,15,32],"back":[3,4]},{"issue":"26119","date":"2026-10-19","front":[3,6,20,24,32],"back":[4,7]},{"issue":"26118","date":"2026-10-17","front":[2,9,21,26,32],"back":[6,12]},{"issue":"26117","date":"2026-10-14","front":[4,13,19,29,31],"back":[2,12]},{"issue":"26116","date":"2026-10-12","front":[9,18,22,25,35],"back":[1,10]},{"issue":"26115","date":"2026-10-10","front":[12,20,32,33,35],"back":[6,7]},{"issue":"26114","date":"2026-10-07","front":[8,12,15,29,30],"back":[9,12]},{"issue":"26113","date":"2026-10-05","front":[2,4,6,10,11],"back":[1,10]},{"issue":"26112","date":"2026-09-30","front":[1,3,5,10,22],"back":[3,9]},{"issue":"26111","date":"2026-09-28","front":[10,11,17,26,29],"back":[1,3]},{"issue":"26110","date":"2026-09-26","front":[3,24,25,26,35],"back":[7,9]},{"issue":"26109","date":"2026-09-23","front":[12,14,16,27,34],"back":[4,8]},{"issue":"26108","date":"2026-09-21","front":[1,5,7,21,35],"back":[1,4]},{"issue":"26107","date":"2026-09-19","front":[2,5,7,14,22],"back":[4,10]},{"issue":"26106","date":"2026-09-16","front":[14,17,21,25,28],"back":[4,6]},{"issue":"26105","date":"2026-09-14","front":[10,14,30,33,34],"back":[9,12]},{"issue":"26104","date":"2026-09-12","front":[1,6,14,15,26],"back":[8,9]},{"issue":"26103","date":"2026-09-09","front":[3,16,17,32,35],"back":[2,12]},{"issue":"26102","date":"2026-09-07","front":[1,3,7,27,28],"back":[6,7]},{"issue":"26101","date":"2026-09-05","front":[9,11,18,26,33],"back":[9,11]},{"issue":"26100","date":"2026-09-02","front":[2,6,11,15,31],"back":[7,8]},{"issue":"26099","date":"2026-08-31","front":[2,17,20,29,33],"back":[8,9]},{"issue":"26098","date":"2026-08-29","front":[7,9,18,19,21],"back":[2,9]},{"issue":"26097","date":"2026-08-26","front":[3,10,12,20,25],"back":[1,9]},{"issue":"26096","date":"2026-08-24","front":[8,9,10,11,25],"back":[4,12]},{"issue":"26095","date":"2026-08-22","front":[4,6,8,10,14],"back":[4,5]},{"issue":"26094","date":"2026-08-19","front":[5,14,15,17,33],"back":[1,7]},{"issue":"26093","date":"2026-08-17","front":[8,10,22,26,29],"back":[3,10]},{"issue":"26092","date":"2026-08-15","front":[12,16,19,29,33],"back":[7,9]},{"issue":"26091","date":"2026-08-12","front":[3,4,7,12,32],"back":[1,2]},{"issue":"26090","date":"2026-08-10","front":[9,14,17,19,24],"back":[2,9]},{"issue":"26089","date":"2026-08-08","front":[3,7,12,14,26],"back":[5,11]},{"issue":"26088","date":"2026-08-05","front":[3,9,11,24,27],"back":[5,11]},{"issue":"26087","date":"2026-08-03","front":[5,10,16,24,27],"back":[4,10]},{"issue":"26086","date":"2026-08-01","front":[10,11,18,22,35],"back":[6,12]},{"issue":"26085","date":"2026-07-29","front":[3,4,14,28,31],"back":[5,7]},{"issue":"26084","date":"2026-07-27","front":[13,25,30,32,33],"back":[4,5]},{"issue":"26083","date":"2026-07-25","front":[14,15,16,23,26],"back":[7,9]},{"issue":"26082","date":"2026-07-22","front":[16,26,27,28,34],"back":[2,6]},{"issue":"26081","date":"2026-07-20","front":[8,16,18,24,34],"back":[9,12]},{"issue":"26080","date":"2026-07-18","front":[5,10,15,21,23],"back":[7,8]},{"issue":"26079","date":"2026-07-15","front":[6,8,23,26,27],"back":[5,12]},{"issue":"26078","date":"2026-07-13","front":[2,13,20,25,32],"back":[8,11]},{"issue":"26077","date":"2026-07-11","front":[4,14,19,24,27],"back":[6,7]},{"issue":"26076","date":"2026-07-08","front":[15,20,27,28,35],"back":[2,11]},{"issue":"26075","date":"2026-07-06","front":[1,6,16,18,26],"back":[4,10]},{"issue":"26074","date":"2026-07-04","front":[1,4,10,23,25],"back":[1,12]},{"issue":"26073","date":"2026-07-01","front":[4,10,22,23,33],"back":[2,12]},{"issue":"26072","date":"2026-06-29","front":[1,13,26,29,30],"back":[9,11]},{"issue":"26071","date":"2026-06-27","front":[5,13,22,26,32],"back":[2,3]},{"issue":"26070","date":"2026-06-24","front":[4,5,15,21,32],"back":[2,11]},{"issue":"26069","date":"2026-06-22","front":[12,19,21,24,29],"back":[3,10]},{"issue":"26068","date":"2026-06-20","front":[3,11,12,21,22],"back":[6,10]},{"issue":"26067","date":"2026-06-17","front":[6,16,18,19,28],"back":[7,11]},{"issue":"26066","date":"2026-06-15","front":[10,13,19,21,30],"back":[4,5]},{"issue":"26065","date":"2026-06-13","front":[4,11,12,13,25],"back":[4,8]},{"issue":"26064","date":"2026-06-10","front":[3,13,15,17,21],"back":[2,7]},{"issue":"26063","date":"2026-06-08","front":[3,15,20,29,31],"back":[1,12]},{"issue":"26062","date":"2026-06-06","front":[7,15,20,24,29],"back":[4,10]},{"issue":"26061","date":"2026-06-03","front":[10,12,26,31,35],"back":[2,12]},{"issue":"26060","date":"2026-06-01","front":[22,28,30,31,34],"back":[1,5]},{"issue":"26059","date":"2026-05-30","front":[6,13,17,19,26],"back":[7,8]},{"issue":"26058","date":"2026-05-27","front":[7,12,13,18,34],"back":[1,5]},{"issue":"26057","date":"2026-05-25","front":[23,25,26,27,34],"back":[4,10]},{"issue":"26056","date":"2026-05-23","front":[6,7,18,21,30],"back":[1,5]},{"issue":"26055","date":"2026-05-20","front":[9,10,20,33,35],"back":[4,11]},{"issue":"26054","date":"2026-05-18","front":[2,6,14,22,24],"back":[8,11]},{"issue":"26053","date":"2026-05-16","front":[2,9,14,20,31],"back":[5,9]},{"issue":"26052","date":"2026-05-13","front":[2,3,20,28,33],"back":[2,12]},{"issue":"26051","date":"2026-05-11","front":[13,18,28,32,33],"back":[2,11]},{"issue":"26050","date":"2026-05-09","front":[6,10,14,23,33],"back":[8,10]},{"issue":"26049","date":"2026-05-06","front":[1,6,14,15,17],"back":[2,3]},{"issue":"26048","date":"2026-05-04","front":[11,17,20,23,35],"back":[1,10]},{"issue":"26047","date":"2026-05-02","front":[9,20,21,23,28],"back":[6,11]},{"issue":"26046","date":"2026-04-29","front":[1,13,18,27,33],"back":[4,7]},{"issue":"26045","date":"2026-04-27","front":[1,15,21,26,33],"back":[4,7]},{"issue":"26044","date":"2026-04-25","front":[3,8,22,26,29],"back":[7,10]},{"issue":"26043","date":"2026-04-22","front":[8,12,14,19,22],"back":[11,12]},{"issue":"26042","date":"2026-04-20","front":[2,7,13,19,24],"back":[3,8]},{"issue":"26041","date":"2026-04-18","front":[24,25,27,29,34],"back":[2,6]},{"issue":"26040","date":"2026-04-15","front":[6,12,13,21,34],"back":[8,9]},{"issue":"26039","date":"2026-04-13","front":[9,11,20,26,27],"back":[6,9]},{"issue":"26038","date":"2026-04-11","front":[8,17,21,33,35],"back":[6,7]},{"issue":"26037","date":"2026-04-08","front":[7,12,13,28,32],"back":[6,8]},{"issue":"26036","date":"2026-04-06","front":[4,7,16,26,32],"back":[5,8]},{"issue":"26035","date":"2026-04-04","front":[2,22,30,33,34],"back":[8,12]},{"issue":"26034","date":"2026-04-01","front":[11,12,25,26,27],"back":[8,11]},{"issue":"26033","date":"2026-03-30","front":[3,5,7,9,18],"back":[2,10]},{"issue":"26032","date":"2026-03-28","front":[3,4,19,26,32],"back":[1,12]},{"issue":"26031","date":"2026-03-25","front":[6,8,22,29,34],"back":[5,7]},{"issue":"26030","date":"2026-03-23","front":[2,13,22,28,34],"back":[5,12]},{"issue":"26029","date":"2026-03-21","front":[3,5,17,33,35],"back":[5,7]},{"issue":"26028","date":"2026-03-18","front":[15,27,29,30,34],"back":[1,10]},{"issue":"26027","date":"2026-03-16","front":[9,10,11,12,16],"back":[1,11]},{"issue":"26026","date":"2026-03-14","front":[10,11,22,26,32],"back":[1,8]},{"issue":"26025","date":"2026-03-11","front":[3,15,24,28,29],"back":[3,7]},{"issue":"26024","date":"2026-03-09","front":[2,4,8,10,21],"back":[9,12]},{"issue":"26023","date":"2026-03-07","front":[9,25,26,27,28],"back":[1,8]},{"issue":"26022","date":"2026-03-04","front":[5,9,10,18,26],"back":[5,6]},{"issue":"26021","date":"2026-03-02","front":[5,8,12,14,17],"back":[4,5]},{"issue":"26020","date":"2026-02-28","front":[1,10,21,23,29],"back":[10,12]},{"issue":"26019","date":"2026-02-25","front":[12,13,14,16,31],"back":[4,12]},{"issue":"26018","date":"2026-02-11","front":[9,11,19,30,35],"back":[1,12]},{"issue":"26017","date":"2026-02-09","front":[4,5,10,23,31],"back":[7,12]},{"issue":"26016","date":"2026-02-07","front":[8,9,12,19,24],"back":[1,6]},{"issue":"26015","date":"2026-02-04","front":[1,4,10,13,17],"back":[3,11]},{"issue":"26014","date":"2026-02-02","front":[16,18,23,34,35],"back":[1,6]},{"issue":"26013","date":"2026-01-31","front":[3,5,6,23,26],"back":[1,4]},{"issue":"26012","date":"2026-01-28","front":[1,2,9,22,25],"back":[1,6]},{"issue":"26011","date":"2026-01-26","front":[14,21,23,29,33],"back":[2,10]},{"issue":"26010","date":"2026-01-24","front":[2,3,13,18,26],"back":[2,9]},{"issue":"26009","date":"2026-01-21","front":[5,12,13,14,33],"back":[5,8]},{"issue":"26008","date":"2026-01-19","front":[3,6,17,21,33],"back":[5,11]},{"issue":"26007","date":"2026-01-17","front":[1,3,13,20,26],"back":[3,10]},{"issue":"26006","date":"2026-01-14","front":[5,12,18,23,35],"back":[6,12]},{"issue":"26005","date":"2026-01-12","front":[2,4,16,23,35],"back":[6,11]},{"issue":"26004","date":"2026-01-10","front":[5,18,23,25,32],"back":[5,9]},{"issue":"26003","date":"2026-01-07","front":[2,9,11,15,16],"back":[2,4]},{"issue":"26002","date":"2026-01-05","front":[4,8,15,20,31],"back":[7,8]},{"issue":"26001","date":"2026-01-03","front":[7,9,23,27,32],"back":[2,8]},{"issue":"25150","date":"2025-12-31","front":[13,14,15,28,31],"back":[1,5]},{"issue":"25149","date":"2025-12-29","front":[24,26,30,31,32],"back":[5,12]},{"issue":"25148","date":"2025-12-27","front":[3,4,14,30,32],"back":[8,12]},{"issue":"25147","date":"2025-12-24","front":[6,16,21,25,33],"back":[7,8]},{"issue":"25146","date":"2025-12-22","front":[6,11,13,16,22],"back":[2,3]},{"issue":"25145","date":"2025-12-20","front":[5,7,20,22,25],"back":[4,5]},{"issue":"25144","date":"2025-12-17","front":[2,5,13,15,28],"back":[5,8]},{"issue":"25143","date":"2025-12-15","front":[3,4,18,24,29],"back":[7,12]},{"issue":"25142","date":"2025-12-13","front":[9,10,14,27,29],"back":[2,9]},{"issue":"25141","date":"2025-12-10","front":[4,9,24,28,29],"back":[2,10]},{"issue":"25140","date":"2025-12-08","front":[4,5,13,18,34],"back":[2,8]},{"issue":"25139","date":"2025-12-06","front":[8,18,22,30,35],"back":[1,4]},{"issue":"25138","date":"2025-12-03","front":[1,3,19,21,23],"back":[7,11]},{"issue":"25137","date":"2025-12-01","front":[7,8,9,11,22],"back":[5,11]},{"issue":"25136","date":"2025-11-29","front":[7,11,15,16,23],"back":[9,11]},{"issue":"25135","date":"2025-11-26","front":[2,10,16,28,32],"back":[1,7]}]};
+</script>
+<script>
+/*__ENGINE_COMMON_START__*/
+/* ============================================================
+ * 数据管道工具（仅合并/期号工具，与选号公式无关）
+ * 双色球与大乐透两套公式引擎零共享任何选号逻辑
+ * =========================================================== */
+(function () {
+  'use strict';
+  function mergeRows(base, extra, cap) {
+    cap = cap || 150;
+    var m = {};
+    var i, r;
+    for (i = 0; i < (base || []).length; i++) { r = base[i]; m[String(r.issue)] = r; }
+    for (i = 0; i < (extra || []).length; i++) { r = extra[i]; m[String(r.issue)] = r; }
+    var out = [];
+    for (var k in m) out.push(m[k]);
+    out.sort(function (a, b) { return Number(b.issue) - Number(a.issue); });
+    return out.slice(0, cap);
+  }
+  function nextIssue(issue) {
+    var n = Number(issue);
+    return isFinite(n) ? String(n + 1) : String(issue);
+  }
+  globalThis.LOTTO_COMMON = { mergeRows: mergeRows, nextIssue: nextIssue };
+})();
+
+/*__ENGINE_COMMON_END__*/
+/*__ENGINE_SSQ_START__*/
+/* ============================================================
+ * 【双色球独立公式引擎】8 式 · 每式一个独立科学方法（无冗余）
+ * 红球池 1-33 选 6，蓝球池 1-16 选 1
+ * 维度：贝叶斯频率 / 和值密度 / 奇偶形态 / 质合形态 /
+ *       遗漏危险率 / 马尔可夫转移 / 覆盖设计 / 反热门博弈
+ * 与大乐透引擎零共享；全程无随机数，同一数据永远同一结果
+ * =========================================================== */
+(function () {
+  'use strict';
+
+  var PRIMES = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31];
+  var IS_P = {}; for (var _i = 0; _i < PRIMES.length; _i++) IS_P[PRIMES[_i]] = 1;
+
+  /* 反热门博弈：大众偏好热度（生日段/小号偏好/幸运尾/吉利数），热度越高越多人类似选号 */
+  var POP = {};
+  (function () {
+    for (var n = 1; n <= 33; n++) {
+      var p = 0;
+      if (n <= 31) p += 1.0;      /* 生日日期 1-31 */
+      if (n <= 12) p += 0.5;      /* 票面上方视觉偏好 */
+      if (n === 6 || n === 8 || n === 9) p += 0.5; /* 吉利个位数 */
+      if (n === 18 || n === 28) p += 0.4;          /* 「要发」「易发」 */
+      var t = n % 10; if (t === 6 || t === 8) p += 0.35;
+      POP[n] = Math.round(p * 100) / 100;
+    }
+  })();
+  var POPB = { 1: 0.9, 2: 0.5, 3: 0.6, 4: 0.4, 5: 0.5, 6: 0.9, 7: 0.7, 8: 0.9, 9: 0.8, 10: 0.3, 11: 0.3, 12: 0.45, 13: 0.3, 14: 0.2, 15: 0.2, 16: 0.5 };
+
+  function r2(x) { return Math.round(x * 100) / 100; }
+  function asc(a, b) { return a - b; }
+  function zone(n) { return n <= 11 ? 0 : (n <= 22 ? 1 : 2); } /* 三区 11/11/11 */
+  function mean(a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i]; return a.length ? s / a.length : 0; }
+  function sd(a) { var n = a.length; if (n < 2) return 0; var m = mean(a), s = 0; for (var i = 0; i < n; i++) { var d = a[i] - m; s += d * d; } return Math.sqrt(s / (n - 1)); }
+  function mode(arr) { /* 众数，并列取较小值（确定性） */
+    var m = {}, best = null, bc = -1;
+    for (var i = 0; i < arr.length; i++) m[arr[i]] = (m[arr[i]] || 0) + 1;
+    for (var k in m) { var v = Number(k); if (m[k] > bc || (m[k] === bc && v < best)) { bc = m[k]; best = v; } }
+    return best;
+  }
+  function clamp(x, lo, hi) { return x < lo ? lo : (x > hi ? hi : x); }
+
+  function redFreq(rows, k) {
+    var m = {}; for (var n = 1; n <= 33; n++) m[n] = 0;
+    var c = Math.min(k, rows.length);
+    for (var i = 0; i < c; i++) { var d = rows[i].red; for (var j = 0; j < d.length; j++) m[d[j]]++; }
+    return m;
+  }
+  function omitMap(rows) {
+    var om = {}; for (var n = 1; n <= 33; n++) om[n] = rows.length;
+    for (var i = 0; i < rows.length; i++) { var d = rows[i].red; for (var j = 0; j < d.length; j++) { var n = d[j]; if (om[n] === rows.length) om[n] = i; } }
+    return om;
+  }
+  function meanGapMap(rowsOldFirst) { /* 平均间隔（生存分析 spacer） */
+    var pos = {}; for (var n = 1; n <= 33; n++) pos[n] = [];
+    for (var i = 0; i < rowsOldFirst.length; i++) { var d = rowsOldFirst[i].red; for (var j = 0; j < d.length; j++) pos[d[j]].push(i); }
+    var g = {};
+    for (var n = 1; n <= 33; n++) {
+      var p = pos[n];
+      if (p.length >= 2) { var s = 0; for (var k = 1; k < p.length; k++) s += p[k] - p[k - 1]; g[n] = s / (p.length - 1); }
+      else g[n] = Math.max(6, rowsOldFirst.length / 3);
+    }
+    return g;
+  }
+  function zmap(m) {
+    var a = []; for (var n = 1; n <= 33; n++) a.push(m[n]);
+    var mu = mean(a), s = sd(a) || 1, z = {};
+    for (var n = 1; n <= 33; n++) z[n] = r2((m[n] - mu) / s);
+    return z;
+  }
+  function tailMap(rows, k) {
+    var m = {}; for (var t = 0; t < 10; t++) m[t] = 0;
+    var c = Math.min(k, rows.length);
+    for (var i = 0; i < c; i++) { var d = rows[i].red; for (var j = 0; j < d.length; j++) m[d[j] % 10]++; }
+    return m;
+  }
+  function countBy(arr) { var m = {}; for (var i = 0; i < arr.length; i++) m[arr[i]] = (m[arr[i]] || 0) + 1; return m; }
+
+  /* ---------------- 形态分析 ---------------- */
+  function analyze(rows) {
+    var W100 = Math.min(100, rows.length);
+    var of = rows.slice().reverse();
+    var sums = of.map(function (r) { var s = 0; for (var i = 0; i < r.red.length; i++) s += r.red[i]; return s; });
+    var s100 = sums.slice(-W100);
+    var last = rows[0];
+    var lastReds = {}; for (var i = 0; i < last.red.length; i++) lastReds[last.red[i]] = 1;
+
+    var f30 = redFreq(rows, 30), f100 = redFreq(rows, W100);
+    var om = omitMap(rows), ag = meanGapMap(of);
+    var z100 = zmap(f100);
+
+    /* 贝叶斯后验收缩估计：30期证据 + 100期先验（强度20），共轭 Beta-二项 */
+    var pB = {};
+    for (var n = 1; n <= 33; n++) {
+      var prior = (f100[n] + 1) / (W100 + 33);
+      pB[n] = r2((f30[n] + 20 * prior) / (30 + 20));
+    }
+
+    /* 形态众数（近100期） */
+    function cntRow(r, fn) { var c = 0; for (var j = 0; j < r.red.length; j++) if (fn(r.red[j])) c++; return c; }
+    var oddHist = rows.slice(0, W100).map(function (r) { return cntRow(r, function (n) { return n % 2; }); });
+    var bigHist = rows.slice(0, W100).map(function (r) { return cntRow(r, function (n) { return n > 16; }); });
+    var prHist = rows.slice(0, W100).map(function (r) { return cntRow(r, function (n) { return !!IS_P[n]; }); });
+    var modeOdd = mode(oddHist), modeBig = mode(bigHist), modePrime = mode(prHist);
+    var primeRatio = r2(mean(prHist)); /* 历史平均质数枚数 */
+
+    var tc20 = tailMap(rows, 20);
+
+    /* 蓝球统计 */
+    var bnf = rows.map(function (r) { return r.blue; });
+    var b10 = countBy(bnf.slice(0, 10));
+    var b16 = countBy(bnf.slice(0, Math.min(16, bnf.length)));
+    var b30 = countBy(bnf.slice(0, Math.min(30, bnf.length)));
+    var b100 = countBy(bnf.slice(0, Math.min(100, bnf.length)));
+    var bOm = {}; for (var b = 1; b <= 16; b++) bOm[b] = bnf.length;
+    for (var i2 = 0; i2 < bnf.length; i2++) { var bb = bnf[i2]; if (bOm[bb] === bnf.length) bOm[bb] = i2; }
+    var bof = bnf.slice().reverse();
+    var bpos = {}; for (b = 1; b <= 16; b++) bpos[b] = [];
+    for (i2 = 0; i2 < bof.length; i2++) bpos[bof[i2]].push(i2);
+    var bAg = {};
+    for (b = 1; b <= 16; b++) {
+      var p = bpos[b];
+      if (p.length >= 2) { var s = 0; for (var k = 1; k < p.length; k++) s += p[k] - p[k - 1]; bAg[b] = s / (p.length - 1); }
+      else bAg[b] = Math.max(4, bof.length / 3);
+    }
+    var pBB = {};
+    for (b = 1; b <= 16; b++) {
+      var priorB = (b100[b] || 0) + 1;
+      pBB[b] = r2(((b30[b] || 0) + 15 * (priorB / (Math.min(100, rows.length) + 16))) / (30 + 15));
+    }
+
+    /* 马尔可夫转移（红→红；蓝→蓝） */
+    var T = {}, TA = {};
+    for (i2 = 0; i2 < of.length - 1; i2++) {
+      var cur = of[i2].red, nxt = of[i2 + 1].red;
+      for (var x = 0; x < cur.length; x++) for (var y = 0; y < nxt.length; y++) {
+        var a = cur[x], b2 = nxt[y];
+        T[a] = T[a] || {}; T[a][b2] = (T[a][b2] || 0) + 1;
+        if (Math.abs(a - b2) === 1) { TA[a] = TA[a] || {}; TA[a][b2] = (TA[a][b2] || 0) + 1; }
+      }
+    }
+    var TB = {};
+    for (i2 = 0; i2 < bof.length - 1; i2++) { var b1 = bof[i2], b3 = bof[i2 + 1]; TB[b1] = TB[b1] || {}; TB[b1][b3] = (TB[b1][b3] || 0) + 1; }
+
+    var sumArr = s100;
+    var mu = mean(sumArr), sdv = sd(sumArr);
+
+    return {
+      rows: rows, pB: pB, z100: z100, om: om, ag: ag,
+      mu: mu, sd: sdv, lastReds: lastReds, lastBlue: last.blue,
+      b10: b10, b16: b16, b30: b30, bOm: bOm, bAg: bAg, pBB: pBB,
+      T: T, TA: TA, TB: TB,
+      modeOdd: modeOdd, modeBig: modeBig, modePrime: modePrime, primeRatio: primeRatio,
+      tc20: tc20, nD: rows.length, W100: W100
+    };
+  }
+
+  /* ---------------- 约束组合枚举（确定性） ---------------- */
+  function checkCons(a, cons) {
+    if (!cons) return true;
+    var sum = 0, zc = [0, 0, 0], odd = 0, prime = 0, big = 0, tails = {};
+    for (var i = 0; i < a.length; i++) {
+      var n = a[i];
+      sum += n; zc[zone(n)]++;
+      if (n % 2) odd++;
+      if (IS_P[n]) prime++;
+      if (n > 16) big++;
+      tails[n % 10] = (tails[n % 10] || 0) + 1;
+    }
+    if (cons.sumLo != null && sum < cons.sumLo) return false;
+    if (cons.sumHi != null && sum > cons.sumHi) return false;
+    if (cons.zoneCap != null) { for (var z = 0; z < 3; z++) if (zc[z] > cons.zoneCap) return false; }
+    if (cons.zoneExact) {
+      var s1 = zc.slice().sort(asc), s2 = cons.zoneExact.slice().sort(asc);
+      for (z = 0; z < 3; z++) if (s1[z] !== s2[z]) return false;
+    }
+    if (cons.oddExact != null && odd !== cons.oddExact) return false;
+    if (cons.bigExact != null && big !== cons.bigExact) return false;
+    if (cons.primeExact != null && prime !== cons.primeExact) return false;
+    if (cons.maxRun != null) {
+      var s = a.slice().sort(asc), run = 1;
+      for (var i2 = 1; i2 < s.length; i2++) { if (s[i2] === s[i2 - 1] + 1) { run++; if (run > cons.maxRun) return false; } else run = 1; }
+    }
+    if (cons.minTails != null) { var dt = 0; for (var t in tails) dt++; if (dt < cons.minTails) return false; }
+    if (cons.maxTail != null) { for (var t2 in tails) if (tails[t2] > cons.maxTail) return false; }
+    return true;
+  }
+  function lexLess(a, b) { for (var i = 0; i < a.length; i++) { if (a[i] !== b[i]) return a[i] < b[i]; } return false; }
+  function stripCons(c, keys) { var o = {}; for (var k in c) if (keys.indexOf(k) < 0) o[k] = c[k]; return o; }
+
+  function pickCombo(cands, k, cons) {
+    var sorted = cands.slice().sort(function (a, b) { return b.s - a.s || a.n - b.n; });
+    var pool = []; for (var i = 0; i < sorted.length && pool.length < 15; i++) pool.push(sorted[i].n);
+    var smap = {}; for (i = 0; i < cands.length; i++) smap[cands[i].n] = cands[i].s;
+    function run(c) {
+      var best = null;
+      (function go(start, cur, sc) {
+        if (cur.length === k) {
+          if (!c || checkCons(cur, c)) {
+            if (!best || sc > best.sc + 1e-9 || (sc > best.sc - 1e-9 && lexLess(cur, best.arr))) best = { arr: cur.slice(), sc: sc };
+          }
+          return;
+        }
+        if (pool.length - start < k - cur.length) return;
+        for (var i = start; i < pool.length; i++) { cur.push(pool[i]); go(i + 1, cur, sc + smap[pool[i]]); cur.pop(); }
+      })(0, [], 0);
+      return best;
+    }
+    var b = cons ? run(cons) : run(null);
+    if (!b && cons) b = run(stripCons(cons, ['sumLo', 'sumHi']));
+    if (!b && cons) b = run(stripCons(cons, ['sumLo', 'sumHi', 'oddExact', 'bigExact', 'primeExact', 'maxRun', 'minTails', 'maxTail', 'zoneCap', 'zoneExact']));
+    if (!b) b = run(null);
+    if (!b) { var t = sorted.slice(0, k).map(function (x) { return x.n; }); t.sort(asc); return t; }
+    return b.arr.slice().sort(asc);
+  }
+  function candsOf(scoreMap) {
+    var c = []; for (var n = 1; n <= 33; n++) c.push({ n: n, s: r2(scoreMap(n)) });
+    return c;
+  }
+  /* 通用结构护栏：三区不过度集中、和值不脱离历史合理带（非信号，仅防呆） */
+  var GUARD = function (c) { return { sumLo: c.mu - 1.0 * c.sd, sumHi: c.mu + 1.0 * c.sd, zoneCap: 3, maxRun: 2 }; };
+
+  /* ================ 8 式（每式一个主驱动） ================ */
+
+  /* S1 贝叶斯频率式：30期证据 + 100期先验的后验收缩概率（唯一频率代表） */
+  function f1(c) {
+    var red = pickCombo(candsOf(function (n) { return c.pB[n]; }), 6, GUARD(c));
+    var bestB = 1, bp = -1;
+    for (var b = 1; b <= 16; b++) { if (c.pBB[b] > bp + 1e-9) { bp = c.pBB[b]; bestB = b; } }
+    return { red: red, blue: bestB, why: '主驱动=贝叶斯后验：30期近期证据以100期长期频率为先验（强度20）收缩，得各号出现概率后验均值，取最高6枚；蓝球同法。先验收缩天然防「唯热论」' };
+  }
+
+  /* S2 和值密度式：正态近似下和值密度最高带 μ±0.4σ（号码分仅作平票序） */
+  function f2(c) {
+    var red = pickCombo(candsOf(function (n) { return c.pB[n]; }), 6,
+      { sumLo: c.mu - 0.4 * c.sd, sumHi: c.mu + 0.4 * c.sd, zoneCap: 3, maxRun: 2 });
+    var bestB = 1, bd = 99;
+    for (var b = 1; b <= 16; b++) { var d = Math.abs((c.b16[b] || 0) - 1); if (d < bd - 1e-9 || (d === bd && b < bestB)) { bd = d; bestB = b; } }
+    return { red: red, blue: bestB, why: '主驱动=和值密度：历史和值近似正态，取密度最高的 μ±0.4σ 核心带（' + Math.round(c.mu - 0.4 * c.sd) + '~' + Math.round(c.mu + 0.4 * c.sd) + '）；蓝球取近16期出现次数最接近均匀期望的无偏者' };
+  }
+
+  /* S3 奇偶形态式：奇偶/大小计数匹配历史众数类（近100期） */
+  function f3(c) {
+    var red = pickCombo(candsOf(function (n) { return c.pB[n]; }), 6,
+      { oddExact: c.modeOdd, bigExact: c.modeBig, zoneCap: 3, maxRun: 2 });
+    var even = (c.lastBlue % 2) ? 1 : 0; /* 与最近蓝球相反的奇偶侧 */
+    var bestB = -1, bp = -1;
+    for (var b = 1; b <= 16; b++) {
+      if ((b % 2) !== (1 - even)) continue;
+      if (c.pBB[b] > bp + 1e-9 || (c.pBB[b] === bp && b < bestB)) { bp = c.pBB[b]; bestB = b; }
+    }
+    if (bestB < 0) bestB = 1;
+    return { red: red, blue: bestB, why: '主驱动=奇偶·大小结构：约束奇数枚数=' + c.modeOdd + '、大号(>16)枚数=' + c.modeBig + '，即近100期最常见形态类（多项目匹配）；蓝球取与上期相反奇偶侧的后验最高者' };
+  }
+
+  /* S4 质合形态式：质数枚数匹配历史众数（用户维度：质数） */
+  function f4(c) {
+    var mp = (c.modePrime == null || c.modePrime < 1 || c.modePrime > 3) ? 2 : c.modePrime;
+    var red = pickCombo(candsOf(function (n) { return c.pB[n] + 0.4 * (IS_P[n] ? 1 : 0); }), 6,
+      { primeExact: mp, zoneCap: 3, maxRun: 2 });
+    var arr = [];
+    for (var b = 1; b <= 16; b++) arr.push({ b: b, s: r2(c.pBB[b] + (IS_P[b] ? 0.4 : 0)) });
+    arr.sort(function (x, y) { return y.s - x.s || x.b - y.b; });
+    return { red: red, blue: arr[0].b, why: '主驱动=质合结构：历史平均每期开 ' + c.primeRatio + ' 枚质数（' + PRIMES.join(',') + '），约束质数枚数=众数 ' + mp + '，质数内部按后验排序；蓝球取质数蓝球中后验最高者' };
+  }
+
+  /* S5 遗漏危险率式：生存分析 hazard = 当前遗漏 / 平均间隔 */
+  function f5(c) {
+    var red = pickCombo(candsOf(function (n) { return Math.min(c.om[n] / Math.max(c.ag[n], 2), 4); }), 6,
+      { sumLo: c.mu - 1.2 * c.sd, sumHi: c.mu + 1.2 * c.sd, zoneCap: 3, maxRun: 2 });
+    var bestB = 1, br = -1;
+    for (var b = 1; b <= 16; b++) { var v = c.bOm[b] / Math.max(c.bAg[b], 2); if (v > br + 1e-9) { br = v; bestB = b; } }
+    return { red: red, blue: bestB, why: '主驱动=危险率：hazard=当前遗漏÷平均间隔，h≫1 表示该号超出自身历史节奏（周期到期视角）；蓝球同法。诚实声明：独立随机下「到期」不升高概率，属走势视角' };
+  }
+
+  /* S6 马尔可夫承接式：上期开出→下期开出 转移矩阵 + 邻号承接 */
+  function f6(c) {
+    var red = pickCombo(candsOf(function (n) {
+      var s = 0;
+      for (var x = 1; x <= 33; x++) {
+        if (!c.lastReds[x]) continue;
+        s += ((c.T[x] && c.T[x][n]) || 0) + 0.5 * ((c.TA[x] && c.TA[x][n]) || 0);
+      }
+      return s;
+    }), 6, { sumLo: c.mu - 0.7 * c.sd, sumHi: c.mu + 0.7 * c.sd, zoneCap: 3, maxRun: 2 });
+    var arr = [];
+    for (var b = 1; b <= 16; b++) arr.push({ b: b, s: r2(((c.TB[c.lastBlue] && c.TB[c.lastBlue][b]) || 0) + 0.3 * (c.b10[b] || 0)) });
+    arr.sort(function (x, y) { return y.s - x.s || x.b - y.b; });
+    return { red: red, blue: arr[0].b, why: '主驱动=马尔可夫链：统计历史「上期红→下期红」一阶转移频次（±1邻号转移×0.5 计权），承接上期 6 红的转移分布；蓝球承接上期蓝球的转移频次' };
+  }
+
+  /* S7 覆盖设计式：三区 2:2:2 + 尾数覆盖≥5（组合覆盖设计思想） */
+  function f7(c) {
+    var red = pickCombo(candsOf(function (n) { return c.pB[n] + 0.25 / (1 + (c.tc20[n % 10] || 0)); }), 6,
+      { zoneExact: [2, 2, 2], minTails: 5, maxTail: 2 });
+    var lastTail = c.lastBlue % 10;
+    var arr = [];
+    for (var b = 1; b <= 16; b++) { if (b % 10 === lastTail) continue; arr.push({ b: b, s: c.pBB[b] }); }
+    arr.sort(function (x, y) { return y.s - x.s || x.b - y.b; });
+    if (!arr.length) arr.push({ b: (lastTail === 9 ? 1 : 10), s: 0 });
+    return { red: red, blue: arr[0].b, why: '主驱动=覆盖设计：三区(1-11/12-22/23-33)严格 2:2:2、尾数覆盖≥5种且每尾≤2枚——最大化组合的空间分散度（均衡覆盖设计）；蓝球避开上期蓝球尾数' };
+  }
+
+  /* S8 心理冷门式：反热门博弈——中奖概率不变，但期望分成更高 */
+  function f8(c) {
+    var red = pickCombo(candsOf(function (n) { return -POP[n] + 0.15 * c.z100[n]; }), 6, GUARD(c));
+    var arr = [];
+    for (var b = 1; b <= 16; b++) arr.push({ b: b, pop: POPB[b], om: c.bOm[b] });
+    arr.sort(function (x, y) { return x.pop - y.pop || y.om - x.om || x.b - y.b; });
+    return { red: red, blue: arr[0].b, why: '主驱动=反热门博弈：规避生日段(≤31)/小号(≤12)/幸运尾(6,8)/吉利数等大众偏好。开奖概率与热门无关，但冷门组合中奖时均摊人数更少→期望分成更高（决策论视角）；蓝球同理' };
+  }
+
+  var FORMULAS = [
+    { id: 's1', name: '贝叶斯频率式', short: '贝叶斯', fn: f1 },
+    { id: 's2', name: '和值密度式', short: '和值', fn: f2 },
+    { id: 's3', name: '奇偶形态式', short: '奇偶', fn: f3 },
+    { id: 's4', name: '质合形态式', short: '质合', fn: f4 },
+    { id: 's5', name: '遗漏危险率式', short: '危险率', fn: f5 },
+    { id: 's6', name: '马尔可夫承接式', short: '转移', fn: f6 },
+    { id: 's7', name: '覆盖设计式', short: '覆盖', fn: f7 },
+    { id: 's8', name: '心理冷门式', short: '心理', fn: f8 }
+  ];
+
+  /* ---------------- 推荐（投票制合成） ---------------- */
+  function recommend(rows) {
+    if (!rows || rows.length < 30) throw new Error('数据不足（需≥30期）');
+    var c = analyze(rows);
+    var per = [];
+    for (var i = 0; i < FORMULAS.length; i++) {
+      var f = FORMULAS[i], r = f.fn(c);
+      per.push({ id: f.id, name: f.name, short: f.short, red: r.red, blue: r.blue, why: r.why });
+    }
+    /* 每式 6 票；平票按 式序权重→号码 升序（确定性） */
+    var v = {}, w = {}, N = per.length;
+    for (i = 0; i < N; i++) {
+      var wt = N - i;
+      for (var j = 0; j < per[i].red.length; j++) {
+        var n = per[i].red[j];
+        v[n] = (v[n] || 0) + 1; w[n] = (w[n] || 0) + wt;
+      }
+    }
+    var ranked = Object.keys(v).map(Number).sort(function (a, b) { return v[b] - v[a] || w[b] - w[a] || a - b; });
+    var finalRed = ranked.slice(0, 6).sort(asc);
+    var bv = {}, bw = {};
+    for (i = 0; i < N; i++) { var b = per[i].blue; bv[b] = (bv[b] || 0) + 1; bw[b] = (bw[b] || 0) + (N - i); }
+    var branked = Object.keys(bv).map(Number).sort(function (a, b) { return bv[b] - bv[a] || bw[b] - bw[a] || a - b; });
+    return {
+      game: 'ssq', per: per, votes: v, weights: w, blueVotes: bv,
+      finalRed: finalRed, finalBlue: branked[0],
+      maxRedVotes: v[finalRed[0]] || 0,
+      mu: r2(c.mu), sd: r2(c.sd), nD: c.nD,
+      issue: rows[0].issue
+    };
+  }
+
+  /* ---------------- 复盘：逐期用「开奖前可得数据」重算推荐并对照实际 ---------------- */
+  function replay(rows, n) {
+    var out = [];
+    for (var i = 0; i < n && i < rows.length - 1; i++) {
+      var before = rows.slice(i + 1);
+      if (before.length < 60) break;
+      var rec = recommend(before);
+      var act = rows[i];
+      var hits = 0;
+      for (var j = 0; j < act.red.length; j++) if (rec.finalRed.indexOf(act.red[j]) >= 0) hits++;
+      var fh = [];
+      for (var k = 0; k < rec.per.length; k++) {
+        var h = 0;
+        for (var j2 = 0; j2 < act.red.length; j2++) if (rec.per[k].red.indexOf(act.red[j2]) >= 0) h++;
+        fh.push({ id: rec.per[k].id, name: rec.per[k].name, hits: h, blueHit: rec.per[k].blue === act.blue ? 1 : 0 });
+      }
+      out.push({
+        issue: act.issue, date: act.date, rec: rec, actual: act,
+        redHits: hits, blueHit: act.blue === rec.finalBlue ? 1 : 0, formulaHits: fh
+      });
+    }
+    return out;
+  }
+
+  globalThis.SSQ_ENGINE = {
+    game: 'ssq',
+    version: '2026b1',
+    analyze: analyze,
+    recommend: recommend,
+    replay: replay,
+    FORMULAS: FORMULAS.map(function (f) { return { id: f.id, name: f.name, short: f.short }; })
+  };
+})();
+
+/*__ENGINE_SSQ_END__*/
+/*__ENGINE_DLT_START__*/
+/* ============================================================
+ * 【大乐透独立公式引擎】8 式 · 每式一个独立科学方法（无冗余）
+ * 前区 1-35 选 5，后区 1-12 选 2
+ * 与双色球引擎零共享：不同号码池、不同估计窗口（20/60/120 vs 30/100）、
+ * 不同统计口径（中位间隔 vs 平均间隔、回归通道 vs 静态μ带、
+ * 同尾转移 vs 邻号转移、12/12/11 三区 vs 11/11/11）
+ * 全程无随机数，同一数据永远同一结果，可离线复算
+ * =========================================================== */
+(function () {
+  'use strict';
+
+  var IS_P = { 2: 1, 3: 1, 5: 1, 7: 1, 11: 1, 13: 1, 17: 1, 19: 1, 23: 1, 29: 1, 31: 1 };
+
+  /* 反热门博弈热门度表（前区 1-35，口径与双色球表不同）：
+     生日段 0.8 / 票面上方 0.4 / 5倍整数 0.3 / 幸运尾 0.35 */
+  var POP = {};
+  (function () {
+    for (var n = 1; n <= 35; n++) {
+      var p = 0;
+      if (n <= 31) p += 0.8;
+      if (n <= 12) p += 0.4;
+      if (n % 5 === 0) p += 0.3;
+      var t = n % 10; if (t === 6 || t === 8) p += 0.35;
+      POP[n] = Math.round(p * 100) / 100;
+    }
+  })();
+  var POPB = { 1: 0.7, 2: 0.5, 3: 0.5, 4: 0.4, 5: 0.7, 6: 0.4, 7: 0.5, 8: 0.6, 9: 0.3, 10: 0.3, 11: 0.2, 12: 0.2 };
+
+  function r2(x) { return Math.round(x * 100) / 100; }
+  function asc(a, b) { return a - b; }
+  function zoneF(n) { return n <= 12 ? 0 : (n <= 24 ? 1 : 2); } /* 三区 12/12/11 */
+  function mean(a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i]; return a.length ? s / a.length : 0; }
+  function sd(a) { var n = a.length; if (n < 2) return 0; var m = mean(a), s = 0; for (var i = 0; i < n; i++) { var d = a[i] - m; s += d * d; } return Math.sqrt(s / (n - 1)); }
+  function median(a) { if (!a.length) return 0; var b = a.slice().sort(asc), n = b.length; return n % 2 ? b[(n - 1) / 2] : (b[n / 2 - 1] + b[n / 2]) / 2; }
+  function slope(a) { var n = a.length; if (n < 2) return 0; var mx = (n - 1) / 2, my = mean(a), num = 0, den = 0; for (var i = 0; i < n; i++) { num += (i - mx) * (a[i] - my); den += (i - mx) * (i - mx); } return den ? num / den : 0; }
+  function mode(arr) { var m = {}, best = null, bc = -1; for (var i = 0; i < arr.length; i++) m[arr[i]] = (m[arr[i]] || 0) + 1; for (var k in m) { var v = Number(k); if (m[k] > bc || (m[k] === bc && v < best)) { bc = m[k]; best = v; } } return best; }
+  function clamp(x, lo, hi) { return x < lo ? lo : (x > hi ? hi : x); }
+
+  function frontFreq(rows, k) {
+    var m = {}; for (var n = 1; n <= 35; n++) m[n] = 0;
+    var c = Math.min(k, rows.length);
+    for (var i = 0; i < c; i++) { var d = rows[i].front; for (var j = 0; j < d.length; j++) m[d[j]]++; }
+    return m;
+  }
+  function omitF(rows) {
+    var om = {}; for (var n = 1; n <= 35; n++) om[n] = rows.length;
+    for (var i = 0; i < rows.length; i++) { var d = rows[i].front; for (var j = 0; j < d.length; j++) { var n = d[j]; if (om[n] === rows.length) om[n] = i; } }
+    return om;
+  }
+  function omitB(rows) {
+    var om = {}; for (var n = 1; n <= 12; n++) om[n] = rows.length;
+    for (var i = 0; i < rows.length; i++) { var d = rows[i].back; for (var j = 0; j < d.length; j++) { var n = d[j]; if (om[n] === rows.length) om[n] = i; } }
+    return om;
+  }
+  function medGapF(rowsOldFirst) { /* 中位间隔（区别于双色球的平均间隔） */
+    var pos = {}; for (var n = 1; n <= 35; n++) pos[n] = [];
+    for (var i = 0; i < rowsOldFirst.length; i++) { var d = rowsOldFirst[i].front; for (var j = 0; j < d.length; j++) pos[d[j]].push(i); }
+    var g = {};
+    for (var n = 1; n <= 35; n++) {
+      var p = pos[n], gaps = [];
+      for (var k = 1; k < p.length; k++) gaps.push(p[k] - p[k - 1]);
+      g[n] = gaps.length ? median(gaps) : Math.max(8, rowsOldFirst.length / 3);
+    }
+    return g;
+  }
+  function medGapB(rowsOldFirst) {
+    var pos = {}; for (var n = 1; n <= 12; n++) pos[n] = [];
+    for (var i = 0; i < rowsOldFirst.length; i++) { var d = rowsOldFirst[i].back; for (var j = 0; j < d.length; j++) pos[d[j]].push(i); }
+    var g = {};
+    for (var n = 1; n <= 12; n++) {
+      var p = pos[n], gaps = [];
+      for (var k = 1; k < p.length; k++) gaps.push(p[k] - p[k - 1]);
+      g[n] = gaps.length ? median(gaps) : Math.max(5, rowsOldFirst.length / 3);
+    }
+    return g;
+  }
+  function zmap(m, pool) {
+    var a = []; for (var n = 1; n <= pool; n++) a.push(m[n]);
+    var mu = mean(a), s = sd(a) || 1, z = {};
+    for (var n = 1; n <= pool; n++) z[n] = r2((m[n] - mu) / s);
+    return z;
+  }
+  function tailMapF(rows, k) {
+    var m = {}; for (var t = 0; t < 10; t++) m[t] = 0;
+    var c = Math.min(k, rows.length);
+    for (var i = 0; i < c; i++) { var d = rows[i].front; for (var j = 0; j < d.length; j++) m[d[j] % 10]++; }
+    return m;
+  }
+
+  /* ---------------- 形态分析 ---------------- */
+  function analyze(rows) {
+    var W120 = Math.min(120, rows.length), W60 = Math.min(60, rows.length), W20 = Math.min(20, rows.length);
+    var of = rows.slice().reverse();
+    var sumsF = of.map(function (r) { var s = 0; for (var i = 0; i < r.front.length; i++) s += r.front[i]; return s; });
+    var last = rows[0];
+    var lastFront = {}; for (var i = 0; i < last.front.length; i++) lastFront[last.front[i]] = 1;
+    var lastBack = last.back.slice().sort(asc);
+    var lastBackSum = lastBack[0] + lastBack[1];
+
+    var f120 = frontFreq(rows, W120), f60 = frontFreq(rows, W60), f20 = frontFreq(rows, W20);
+    var omF = omitF(rows), mgF = medGapF(of);
+    var z120 = zmap(f120, 35);
+
+    /* 后验优势估计：20期证据 + 120期先验（强度15） */
+    var pPost = {};
+    for (var n = 1; n <= 35; n++) {
+      var prior = (f120[n] + 1) / (W120 + 35);
+      pPost[n] = r2((f20[n] + 15 * prior) / (W20 + 15));
+    }
+
+    function cntF(r, fn) { var c = 0; for (var j = 0; j < r.front.length; j++) if (fn(r.front[j])) c++; return c; }
+    var odd20 = rows.slice(0, W20).map(function (r) { return cntF(r, function (n) { return n % 2; }); });
+    var odd60 = rows.slice(0, W60).map(function (r) { return cntF(r, function (n) { return n % 2; }); });
+    var big20 = rows.slice(0, W20).map(function (r) { return cntF(r, function (n) { return n >= 18; }); });
+    var big60 = rows.slice(0, W60).map(function (r) { return cntF(r, function (n) { return n >= 18; }); });
+    var pr60 = rows.slice(0, W60).map(function (r) { return cntF(r, function (n) { return !!IS_P[n]; }); });
+    var modeOdd20 = mode(odd20), modeOdd60 = mode(odd60);
+    var modeBig20 = mode(big20), modeBig60 = mode(big60);
+    var modePrime60 = mode(pr60);
+    var primeAvg60 = r2(mean(pr60));
+
+    var tc20 = tailMapF(rows, W20);
+
+    /* 和值：20期回归通道 + 60期护栏带 */
+    var sF20 = sumsF.slice(-W20), sF60 = sumsF.slice(-W60);
+    var muF20 = mean(sF20), sdF20 = sd(sF20), sl20 = slope(sF20);
+    var muF60 = mean(sF60), sdF60 = sd(sF60);
+    var lastSumF = sumsF[sumsF.length - 1];
+
+    /* 后区统计 */
+    var bAll = {}, b20m = {}, b60m = {};
+    for (var b = 1; b <= 12; b++) { bAll[b] = 0; b20m[b] = 0; b60m[b] = 0; }
+    for (var i2 = 0; i2 < rows.length; i2++) {
+      var bd = rows[i2].back;
+      for (var j2 = 0; j2 < bd.length; j2++) { bAll[bd[j2]]++; if (i2 < W20) b20m[bd[j2]]++; if (i2 < W60) b60m[bd[j2]]++; }
+    }
+    var bOm = omitB(rows), mgB = medGapB(of);
+    /* 后验优势（后区）：近20期证据（40枚）+ 120期先验（强度8） */
+    var pPostB = {};
+    for (b = 1; b <= 12; b++) {
+      var priorB = (bAll[b] + 1) / (W120 + 12);
+      pPostB[b] = r2((b20m[b] + 8 * priorB) / (W20 * 2 + 8));
+    }
+    var prAvgB = r2(mean(rows.slice(0, W60).map(function (r) { return (IS_P[r.back[0]] ? 1 : 0) + (IS_P[r.back[1]] ? 1 : 0); })));
+    var modeBackOdd = mode(rows.slice(0, W60).map(function (r) { return (r.back[0] % 2) + (r.back[1] % 2); }));
+    var modeBackPrime = mode(rows.slice(0, W60).map(function (r) { return (IS_P[r.back[0]] ? 1 : 0) + (IS_P[r.back[1]] ? 1 : 0); }));
+    var sumB20 = of.slice(-W20).map(function (r) { return r.back[0] + r.back[1]; });
+    var muB = mean(sumB20), sdB = sd(sumB20);
+
+    /* 转移矩阵：全转移/同尾/邻号（前区）；后区 follow */
+    var TF = {}, TST = {}, TADJ = {};
+    for (i2 = 0; i2 < of.length - 1; i2++) {
+      var cur = of[i2].front, nxt = of[i2 + 1].front;
+      for (var x = 0; x < cur.length; x++) for (var y = 0; y < nxt.length; y++) {
+        var a = cur[x], b2 = nxt[y];
+        TF[a] = TF[a] || {}; TF[a][b2] = (TF[a][b2] || 0) + 1;
+        if (a % 10 === b2 % 10) { TST[a] = TST[a] || {}; TST[a][b2] = (TST[a][b2] || 0) + 1; }
+        if (Math.abs(a - b2) === 1) { TADJ[a] = TADJ[a] || {}; TADJ[a][b2] = (TADJ[a][b2] || 0) + 1; }
+      }
+    }
+    var bflat = [];
+    for (i2 = 0; i2 < of.length; i2++) { for (j2 = 0; j2 < of[i2].back.length; j2++) bflat.push(of[i2].back[j2]); }
+    var TB = {};
+    for (i2 = 0; i2 < bflat.length - 1; i2++) { var b1 = bflat[i2], b3 = bflat[i2 + 1]; TB[b1] = TB[b1] || {}; TB[b1][b3] = (TB[b1][b3] || 0) + 1; }
+
+    return {
+      rows: rows, pPost: pPost, pPostB: pPostB, z120: z120,
+      omF: omF, mgF: mgF, bOm: bOm, mgB: mgB,
+      muF20: muF20, sdF20: sdF20, sl20: sl20, muF60: muF60, sdF60: sdF60,
+      lastSumF: lastSumF, muB: muB, sdB: sdB, lastBack: lastBack, lastBackSum: lastBackSum,
+      modeOdd20: modeOdd20, modeOdd60: modeOdd60, modeBig20: modeBig20, modeBig60: modeBig60,
+      modePrime60: modePrime60, primeAvg60: primeAvg60, modeBackOdd: modeBackOdd, modeBackPrime: modeBackPrime,
+      prAvgB: prAvgB, tc20: tc20,
+      TF: TF, TST: TST, TADJ: TADJ, TB: TB,
+      lastFront: lastFront, nD: rows.length, W120: W120, W60: W60, W20: W20
+    };
+  }
+
+  /* ---------------- 前区约束组合枚举（确定性） ---------------- */
+  function checkCons(a, cons) {
+    if (!cons) return true;
+    var sum = 0, zc = [0, 0, 0], odd = 0, big = 0, prime = 0, tails = {};
+    for (var i = 0; i < a.length; i++) {
+      var n = a[i];
+      sum += n; zc[zoneF(n)]++;
+      if (n % 2) odd++;
+      if (n >= 18) big++;
+      if (IS_P[n]) prime++;
+      tails[n % 10] = (tails[n % 10] || 0) + 1;
+    }
+    if (cons.sumLo != null && sum < cons.sumLo) return false;
+    if (cons.sumHi != null && sum > cons.sumHi) return false;
+    if (cons.zoneCap != null) { for (var z = 0; z < 3; z++) if (zc[z] > cons.zoneCap) return false; }
+    if (cons.zoneAny) {
+      var s1 = zc.slice().sort(asc), s2 = cons.zoneAny.slice().sort(asc);
+      for (z = 0; z < 3; z++) if (s1[z] !== s2[z]) return false;
+    }
+    if (cons.oddWin && (odd < cons.oddWin[0] || odd > cons.oddWin[1])) return false;
+    if (cons.bigWin && (big < cons.bigWin[0] || big > cons.bigWin[1])) return false;
+    if (cons.primeExact != null && prime !== cons.primeExact) return false;
+    if (cons.maxRun != null) {
+      var s = a.slice().sort(asc), run = 1;
+      for (var i2 = 1; i2 < s.length; i2++) { if (s[i2] === s[i2 - 1] + 1) { run++; if (run > cons.maxRun) return false; } else run = 1; }
+    }
+    if (cons.minTails != null) { var dt = 0; for (var t in tails) dt++; if (dt < cons.minTails) return false; }
+    if (cons.maxTail != null) { for (var t2 in tails) if (tails[t2] > cons.maxTail) return false; }
+    return true;
+  }
+  function lexLess(a, b) { for (var i = 0; i < a.length; i++) { if (a[i] !== b[i]) return a[i] < b[i]; } return false; }
+  function stripCons(c, keys) { var o = {}; for (var k in c) if (keys.indexOf(k) < 0) o[k] = c[k]; return o; }
+
+  function pickCombo(cands, k, cons) {
+    var sorted = cands.slice().sort(function (a, b) { return b.s - a.s || a.n - b.n; });
+    var pool = []; for (var i = 0; i < sorted.length && pool.length < 15; i++) pool.push(sorted[i].n);
+    var smap = {}; for (i = 0; i < cands.length; i++) smap[cands[i].n] = cands[i].s;
+    function run(c) {
+      var best = null;
+      (function go(start, cur, sc) {
+        if (cur.length === k) {
+          if (!c || checkCons(cur, c)) {
+            if (!best || sc > best.sc + 1e-9 || (sc > best.sc - 1e-9 && lexLess(cur, best.arr))) best = { arr: cur.slice(), sc: sc };
+          }
+          return;
+        }
+        if (pool.length - start < k - cur.length) return;
+        for (var i = start; i < pool.length; i++) { cur.push(pool[i]); go(i + 1, cur, sc + smap[pool[i]]); cur.pop(); }
+      })(0, [], 0);
+      return best;
+    }
+    var b = cons ? run(cons) : run(null);
+    if (!b && cons) b = run(stripCons(cons, ['sumLo', 'sumHi']));
+    if (!b && cons) b = run(stripCons(cons, ['sumLo', 'sumHi', 'oddWin', 'bigWin', 'primeExact', 'maxRun', 'minTails', 'maxTail', 'zoneCap', 'zoneAny']));
+    if (!b) b = run(null);
+    if (!b) { var t = sorted.slice(0, k).map(function (x) { return x.n; }); t.sort(asc); return t; }
+    return b.arr.slice().sort(asc);
+  }
+  function candsOf(scoreMap) {
+    var c = []; for (var n = 1; n <= 35; n++) c.push({ n: n, s: r2(scoreMap(n)) });
+    return c;
+  }
+  var GUARD = function (c) { return { sumLo: c.muF60 - 1.0 * c.sdF60, sumHi: c.muF60 + 1.0 * c.sdF60, zoneCap: 2, maxRun: 2 }; };
+
+  /* 后区配对枚举（确定性）：遍历 C(12,2)，筛选+打分，平票取更小组合 */
+  function pickBackPair(c, scorer, filter) {
+    var best = null;
+    for (var a = 1; a <= 12; a++) for (var b = a + 1; b <= 12; b++) {
+      if (filter && !filter(a, b)) continue;
+      var sc = r2(scorer(a, b));
+      if (!best || sc > best.sc + 1e-9 || (sc > best.sc - 1e-9 && lexLess([a, b], best.p))) best = { p: [a, b], sc: sc };
+    }
+    return best ? best.p.slice().sort(asc) : null;
+  }
+
+  /* ================ 8 式（每式一个主驱动） ================ */
+
+  /* D1 后验优势式：20期证据 + 120期先验收缩（窗口/强度与双色球式不同） */
+  function g1(c) {
+    var front = pickCombo(candsOf(function (n) { return c.pPost[n]; }), 5, GUARD(c));
+    var back = pickBackPair(c, function (a, b) { return c.pPostB[a] + c.pPostB[b]; }, function (a, b) { return (a + b) % 2 === 1; })
+      || pickBackPair(c, function (a, b) { return c.pPostB[a] + c.pPostB[b]; }, null);
+    return { front: front, back: back, why: '主驱动=贝叶斯后验优势：近20期证据以120期长期频率为先验（强度15）收缩得后验概率，前区取最高5枚；后区强制一奇一偶取后验优势最大对' };
+  }
+
+  /* D2 和值通道式：20期回归通道动态中心（区别于双色球静态μ带） */
+  function g2(c) {
+    var center = c.muF20 + clamp(c.sl20, -c.sdF20, c.sdF20) * 0.5;
+    var target = c.lastSumF > center ? center - 0.6 * c.sdF20 : center + 0.6 * c.sdF20;
+    var front = pickCombo(candsOf(function (n) { return c.pPost[n]; }), 5,
+      { sumLo: target - 0.35 * c.sdF20, sumHi: target + 0.35 * c.sdF20, zoneCap: 2, maxRun: 2 });
+    var bt = c.muB + (c.lastBackSum > c.muB ? -0.5 * c.sdB : 0.5 * c.sdB);
+    var back = pickBackPair(c, function (a, b) { return c.pPostB[a] + c.pPostB[b]; }, function (a, b) {
+      var s = a + b;
+      return (a + b) % 2 === 1 && s >= bt - 0.5 * c.sdB && s <= bt + 0.5 * c.sdB;
+    }) || pickBackPair(c, function (a, b) { return c.pPostB[a] + c.pPostB[b]; }, function (a, b) { return (a + b) % 2 === 1; });
+    return { front: front, back: back, why: '主驱动=和值回归通道：前区20期和值线性回归得动态中心 ' + Math.round(center) + '，上期偏上轨则取下轨相位（均值回复），带宽±0.35σ；后区和值通道同理' };
+  }
+
+  /* D3 奇偶动力学式：近20期众数相对近60期众数的动量方向定窗（区别于双色球精确众数匹配） */
+  function g3(c) {
+    var dO = c.modeOdd20 - c.modeOdd60, dB = c.modeBig20 - c.modeBig60;
+    var oWin = dO > 0 ? [c.modeOdd20, Math.min(5, c.modeOdd20 + 1)]
+      : (dO < 0 ? [Math.max(0, c.modeOdd20 - 1), c.modeOdd20]
+        : [Math.max(0, c.modeOdd20 - 1), Math.min(5, c.modeOdd20 + 1)]);
+    var bWin = dB > 0 ? [c.modeBig20, Math.min(5, c.modeBig20 + 1)]
+      : (dB < 0 ? [Math.max(0, c.modeBig20 - 1), c.modeBig20]
+        : [Math.max(0, c.modeBig20 - 1), Math.min(5, c.modeBig20 + 1)]);
+    var front = pickCombo(candsOf(function (n) { return c.pPost[n]; }), 5,
+      { oddWin: oWin, bigWin: bWin, zoneCap: 2, maxRun: 2 });
+    var back = pickBackPair(c, function (a, b) { return c.pPostB[a] + c.pPostB[b]; }, function (a, b) { return (a % 2) + (b % 2) === c.modeBackOdd; })
+      || pickBackPair(c, function (a, b) { return c.pPostB[a] + c.pPostB[b]; }, null);
+    return { front: front, back: back, why: '主驱动=奇偶动力学：近20期奇偶/大小众数对比近60期众数的动量方向定窗（奇' + oWin.join('~') + '、大' + bWin.join('~') + '）——结构惯性跟随；后区奇偶枚数匹配近60期众数' };
+  }
+
+  /* D4 质数结构式：60期质数枚数众数约束（窗口与双色球不同） */
+  function g4(c) {
+    var mp = (c.modePrime60 == null || c.modePrime60 < 1 || c.modePrime60 > 3) ? 2 : c.modePrime60;
+    var front = pickCombo(candsOf(function (n) { return c.pPost[n] + 0.4 * (IS_P[n] ? 1 : 0); }), 5,
+      { primeExact: mp, zoneCap: 2, maxRun: 2 });
+    var back = pickBackPair(c, function (a, b) { return c.pPostB[a] + c.pPostB[b] + 0.4 * ((IS_P[a] ? 1 : 0) + (IS_P[b] ? 1 : 0)); }, function (a, b) { return (IS_P[a] ? 1 : 0) + (IS_P[b] ? 1 : 0) === c.modeBackPrime; })
+      || pickBackPair(c, function (a, b) { return c.pPostB[a] + c.pPostB[b] + 0.4 * ((IS_P[a] ? 1 : 0) + (IS_P[b] ? 1 : 0)); }, null);
+    return { front: front, back: back, why: '主驱动=质数结构：近60期平均每期开 ' + c.primeAvg60 + ' 枚质数，约束质数枚数=众数 ' + mp + '，质数内部按后验排序；后区质数枚数匹配众数（历史均值 ' + c.prAvgB + '）' };
+  }
+
+  /* D5 周期相位式：遗漏 ÷ 中位间隔（中位数口径，区别于双色球平均间隔） */
+  function g5(c) {
+    var front = pickCombo(candsOf(function (n) { return Math.min(c.omF[n] / Math.max(c.mgF[n], 2), 5); }), 5,
+      { sumLo: c.muF60 - 1.2 * c.sdF60, sumHi: c.muF60 + 1.2 * c.sdF60, zoneCap: 2, maxRun: 2 });
+    var arr = [];
+    for (var b = 1; b <= 12; b++) arr.push({ b: b, s: r2(Math.min(c.bOm[b] / Math.max(c.mgB[b], 2), 5)) });
+    arr.sort(function (x, y) { return y.s - x.s || x.b - y.b; });
+    return { front: front, back: [arr[0].b, arr[1].b].sort(asc), why: '主驱动=周期相位：当前遗漏÷历史中位间隔，相位≥1 即超出自身节奏中位（周期拐点视角），极值优先；后区同法。诚实声明：「到期」不改变独立随机概率，属走势视角' };
+  }
+
+  /* D6 同尾转移式：全转移×1.0 + 同尾×0.6 + 邻号×0.5 三矩阵承接 */
+  function g6(c) {
+    var front = pickCombo(candsOf(function (n) {
+      var s = 0;
+      for (var x = 1; x <= 35; x++) {
+        if (!c.lastFront[x]) continue;
+        s += 1.0 * ((c.TF[x] && c.TF[x][n]) || 0) + 0.6 * ((c.TST[x] && c.TST[x][n]) || 0) + 0.5 * ((c.TADJ[x] && c.TADJ[x][n]) || 0);
+      }
+      return s;
+    }), 5, { sumLo: c.muF60 - 0.7 * c.sdF60, sumHi: c.muF60 + 0.7 * c.sdF60, zoneCap: 2, maxRun: 2 });
+    var arr = [];
+    for (var b = 1; b <= 12; b++) {
+      var f = ((c.TB[c.lastBack[0]] && c.TB[c.lastBack[0]][b]) || 0) + ((c.TB[c.lastBack[1]] && c.TB[c.lastBack[1]][b]) || 0);
+      var tm = (b % 10 === c.lastBack[0] % 10 || b % 10 === c.lastBack[1] % 10) ? 0.4 : 0;
+      arr.push({ b: b, s: r2(f + tm + 0.2 * c.pPostB[b]) });
+    }
+    arr.sort(function (x, y) { return y.s - x.s || x.b - y.b; });
+    return { front: front, back: [arr[0].b, arr[1].b].sort(asc), why: '主驱动=同尾马尔可夫：统计「上期→下期」全转移×1.0、同尾转移×0.6、±1邻号×0.5 三矩阵加权承接上期 5 前区；后区承接上期两枚后区的转移频次与同尾关系' };
+  }
+
+  /* D7 区间覆盖式：12/12/11 三区 2:2:1 + 尾数覆盖≥4（结构口径与双色球不同） */
+  function g7(c) {
+    var front = pickCombo(candsOf(function (n) { return c.pPost[n] + 0.25 / (1 + (c.tc20[n % 10] || 0)); }), 5,
+      { zoneAny: [2, 2, 1], minTails: 4, maxTail: 2 });
+    var t1 = c.lastBack[0] % 10, t2 = c.lastBack[1] % 10;
+    var pool = [];
+    for (var b = 1; b <= 12; b++) { if (b % 10 !== t1 && b % 10 !== t2) pool.push({ b: b, s: c.pPostB[b] }); }
+    if (pool.length < 2) { pool = []; for (b = 1; b <= 12; b++) pool.push({ b: b, s: c.pPostB[b] }); }
+    pool.sort(function (x, y) { return y.s - x.s || x.b - y.b; });
+    return { front: front, back: [pool[0].b, pool[1].b].sort(asc), why: '主驱动=区间覆盖设计：三区(1-12/13-24/25-35)按 2:2:1 分布、尾数覆盖≥4种且每尾≤2枚——最大化空间分散度；后区避开上期两枚后区尾数取后验最高' };
+  }
+
+  /* D8 反热门博弈式：规避大众偏好（热门度表与双色球口径不同） */
+  function g8(c) {
+    var front = pickCombo(candsOf(function (n) { return -POP[n] + 0.15 * c.z120[n]; }), 5, GUARD(c));
+    var pairs = [];
+    for (var a = 1; a <= 12; a++) for (var b = a + 1; b <= 12; b++) {
+      pairs.push({ p: [a, b], pop: POPB[a] + POPB[b], om: c.bOm[a] + c.bOm[b] });
+    }
+    pairs.sort(function (x, y) { return x.pop - y.pop || y.om - x.om || x.p[0] - y.p[0]; });
+    return { front: front, back: pairs[0].p.slice().sort(asc), why: '主驱动=反热门博弈：规避生日段(≤31)/票面上方(≤12)/5倍整数/幸运尾(6,8)。开奖概率与热门无关，但冷门组合中奖时均摊人数更少→期望分成更高；后区同表避热门' };
+  }
+
+  var FORMULAS = [
+    { id: 'd1', name: '后验优势式', short: '后验', fn: g1 },
+    { id: 'd2', name: '和值通道式', short: '通道', fn: g2 },
+    { id: 'd3', name: '奇偶动力学式', short: '奇偶', fn: g3 },
+    { id: 'd4', name: '质数结构式', short: '质数', fn: g4 },
+    { id: 'd5', name: '周期相位式', short: '相位', fn: g5 },
+    { id: 'd6', name: '同尾转移式', short: '转移', fn: g6 },
+    { id: 'd7', name: '区间覆盖式', short: '覆盖', fn: g7 },
+    { id: 'd8', name: '反热门博弈式', short: '心理', fn: g8 }
+  ];
+
+  /* ---------------- 推荐（投票制合成） ---------------- */
+  function recommend(rows) {
+    if (!rows || rows.length < 30) throw new Error('数据不足（需≥30期）');
+    var c = analyze(rows);
+    var per = [];
+    for (var i = 0; i < FORMULAS.length; i++) {
+      var f = FORMULAS[i], r = f.fn(c);
+      per.push({ id: f.id, name: f.name, short: f.short, front: r.front, back: r.back, why: r.why });
+    }
+    /* 每式前区 5 票、后区 2 票；平票按 式序权重→号码 升序（确定性） */
+    var v = {}, w = {}, N = per.length;
+    for (i = 0; i < N; i++) {
+      var wt = N - i;
+      for (var j = 0; j < per[i].front.length; j++) {
+        var n = per[i].front[j];
+        v[n] = (v[n] || 0) + 1; w[n] = (w[n] || 0) + wt;
+      }
+    }
+    var ranked = Object.keys(v).map(Number).sort(function (a, b) { return v[b] - v[a] || w[b] - w[a] || a - b; });
+    var finalFront = ranked.slice(0, 5).sort(asc);
+    var bv = {}, bw = {};
+    for (i = 0; i < N; i++) {
+      for (var j2 = 0; j2 < per[i].back.length; j2++) {
+        var b = per[i].back[j2];
+        bv[b] = (bv[b] || 0) + 1; bw[b] = (bw[b] || 0) + (N - i);
+      }
+    }
+    var branked = Object.keys(bv).map(Number).sort(function (a, b) { return bv[b] - bv[a] || bw[b] - bw[a] || a - b; });
+    var finalBack = branked.slice(0, 2).sort(asc);
+    return {
+      game: 'dlt', per: per, votes: v, weights: w, blueVotes: bv,
+      finalFront: finalFront, finalBack: finalBack,
+      maxFrontVotes: v[finalFront[0]] || 0,
+      mu: r2(c.muF20), sd: r2(c.sdF20), nD: c.nD,
+      issue: rows[0].issue
+    };
+  }
+
+  /* ---------------- 复盘：逐期用「开奖前可得数据」重算推荐并对照实际 ---------------- */
+  function replay(rows, n) {
+    var out = [];
+    for (var i = 0; i < n && i < rows.length - 1; i++) {
+      var before = rows.slice(i + 1);
+      if (before.length < 60) break;
+      var rec = recommend(before);
+      var act = rows[i];
+      var fh = 0, bh = 0;
+      for (var j = 0; j < act.front.length; j++) if (rec.finalFront.indexOf(act.front[j]) >= 0) fh++;
+      for (var j2 = 0; j2 < act.back.length; j2++) if (rec.finalBack.indexOf(act.back[j2]) >= 0) bh++;
+      var fstats = [];
+      for (var k = 0; k < rec.per.length; k++) {
+        var h = 0, hb = 0;
+        for (var j3 = 0; j3 < act.front.length; j3++) if (rec.per[k].front.indexOf(act.front[j3]) >= 0) h++;
+        for (var j4 = 0; j4 < act.back.length; j4++) if (rec.per[k].back.indexOf(act.back[j4]) >= 0) hb++;
+        fstats.push({ id: rec.per[k].id, name: rec.per[k].name, hits: h, backHits: hb });
+      }
+      out.push({
+        issue: act.issue, date: act.date, rec: rec, actual: act,
+        frontHits: fh, backHits: bh, formulaHits: fstats
+      });
+    }
+    return out;
+  }
+
+  globalThis.DLT_ENGINE = {
+    game: 'dlt',
+    version: '2026b1',
+    analyze: analyze,
+    recommend: recommend,
+    replay: replay,
+    FORMULAS: FORMULAS.map(function (f) { return { id: f.id, name: f.name, short: f.short }; })
+  };
+})();
+
+/*__ENGINE_DLT_END__*/
+</script>
+<script>
+/* ============================================================
+ * UI 逻辑：数据加载（内置快照 → 同源 JSON → textdb 镜像兜底）、
+ * 渲染（推荐/票选明细/公式注/自动复盘/说明）、投票制展示
+ * =========================================================== */
+(function () {
+  'use strict';
+  var C = globalThis.LOTTO_COMMON, SQ = globalThis.SSQ_ENGINE, DL = globalThis.DLT_ENGINE;
+  var LS = 'github_lottery_v1';
+  var app = { tab: 'ssq', sub: 'ssq', data: {}, cache: {}, booted: false };
+
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function el(id) { return document.getElementById(id); }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  /* ---------------- 数据 ---------------- */
+  function normalizeRow(g, r) {
+    if (!r) return null;
+    var out = { issue: String(r.issue), date: String(r.date || '') };
+    if (g === 'ssq') {
+      var red = Array.isArray(r.red) ? r.red.slice() : [];
+      var blue = Array.isArray(r.blue) ? (r.blue.length ? r.blue[0] : null) : r.blue;
+      if (red.length !== 6 || !(blue >= 1 && blue <= 16)) return null;
+      out.red = red.slice().sort(function (a, b) { return a - b; });
+      out.blue = blue;
+    } else {
+      var front = Array.isArray(r.front) ? r.front.slice() : (Array.isArray(r.red) ? r.red.slice() : []);
+      var back = Array.isArray(r.back) ? r.back.slice() : (Array.isArray(r.blue) ? r.blue.slice() : []);
+      if (front.length !== 5 || back.length !== 2) return null;
+      out.front = front.slice().sort(function (a, b) { return a - b; });
+      out.back = back.slice().sort(function (a, b) { return a - b; });
+    }
+    return out;
+  }
+  function rowsOf(g, arr) {
+    var out = [];
+    for (var i = 0; i < (arr || []).length; i++) { var r = normalizeRow(g, arr[i]); if (r) out.push(r); }
+    out.sort(function (a, b) { return Number(b.issue) - Number(a.issue); });
+    return out;
+  }
+
+  function initBaked() {
+    app.data.ssq = { rows: rowsOf('ssq', (window.BAKED_SSQ && window.BAKED_SSQ.rows) || []), updatedAt: (window.BAKED_SSQ && window.BAKED_SSQ.updatedAt) || '', src: '内置快照' };
+    app.data.dlt = { rows: rowsOf('dlt', (window.BAKED_DLT && window.BAKED_DLT.rows) || []), updatedAt: (window.BAKED_DLT && window.BAKED_DLT.updatedAt) || '', src: '内置快照' };
+    try {
+      var o = JSON.parse(localStorage.getItem(LS) || 'null');
+      if (o && o.ssq && o.dlt) {
+        ['ssq', 'dlt'].forEach(function (g) {
+          var lr = rowsOf(g, o[g].rows);
+          if (lr.length && (!app.data[g].rows.length || Number(lr[0].issue) >= Number(app.data[g].rows[0].issue))) {
+            app.data[g] = { rows: lr, updatedAt: o[g].updatedAt || '', src: o[g].src || '本地缓存' };
+          }
+        });
+      }
+    } catch (e) { }
+  }
+  function save() {
+    try {
+      localStorage.setItem(LS, JSON.stringify({
+        ssq: { rows: app.data.ssq.rows.slice(0, 150), updatedAt: app.data.ssq.updatedAt, src: app.data.ssq.src },
+        dlt: { rows: app.data.dlt.rows.slice(0, 150), updatedAt: app.data.dlt.updatedAt, src: app.data.dlt.src }
+      }));
+    } catch (e) { }
+  }
+  function invalidate() { app.cache = {}; }
+  function memo(g, key, fn) {
+    var sig = g + ':' + app.data[g].rows.length + ':' + (app.data[g].rows[0] ? app.data[g].rows[0].issue : '');
+    var hit = app.cache[sig + '|' + key];
+    if (hit) return hit;
+    var v = fn();
+    app.cache[sig + '|' + key] = v;
+    return v;
+  }
+
+  async function refresh(silent) {
+    var newer = [];
+    for (var gi = 0; gi < 2; gi++) {
+      var g = gi === 0 ? 'ssq' : 'dlt';
+      try {
+        var res = await fetch('data/' + g + '.json?_=' + Date.now(), { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        var j = await res.json();
+        var fr = rowsOf(g, j.rows);
+        if (fr.length) {
+          var prev = app.data[g].rows[0] ? app.data[g].rows[0].issue : '';
+          app.data[g] = { rows: C.mergeRows(app.data[g].rows, fr), updatedAt: j.updatedAt || '', src: '官方·GitHub同步' };
+          if (Number(app.data[g].rows[0].issue) > Number(prev || 0)) newer.push((g === 'ssq' ? '双色球' : '大乐透') + ' ' + app.data[g].rows[0].issue);
+        }
+      } catch (e) { }
+    }
+    save(); invalidate(); render();
+    tryTextdb();
+    if (newer.length) toast('已同步最新开奖：' + newer.join('、') + '，复盘与下期推荐已自动重算');
+    else if (!silent) toast('当前已是最新数据');
+  }
+
+  /* textdb 镜像兜底：只补充本地没有的新期号，已有期号以官方同步为准 */
+  function tryTextdb() {
+    var s = document.createElement('script');
+    var done = false;
+    var t = setTimeout(function () { finish(); }, 8000);
+    function finish() {
+      if (!done) { done = true; clearTimeout(t); }
+      if (s.parentNode) s.parentNode.removeChild(s);
+    }
+    s.onload = function () {
+      if (done) return;
+      try {
+        var L = window.CSQ_LIVE;
+        if (!L || !L.games) throw new Error('empty');
+        var ch = [];
+        ['ssq', 'dlt'].forEach(function (g) {
+          var have = {};
+          for (var i = 0; i < app.data[g].rows.length; i++) have[String(app.data[g].rows[i].issue)] = 1;
+          var norm = rowsOf(g, L.games[g] || []).filter(function (r) { return !have[r.issue]; });
+          if (norm.length) {
+            var prev = app.data[g].rows[0] ? app.data[g].rows[0].issue : '';
+            app.data[g].rows = C.mergeRows(app.data[g].rows, norm);
+            if (!app.data[g].updatedAt) app.data[g].updatedAt = L.fetchedAt || '';
+            if (Number(app.data[g].rows[0].issue) > Number(prev || 0)) ch.push((g === 'ssq' ? '双色球' : '大乐透') + ' ' + app.data[g].rows[0].issue);
+          }
+        });
+        if (ch.length) { save(); invalidate(); render(); toast('镜像频道已补充最新开奖：' + ch.join('、')); }
+      } catch (e) { }
+      finish();
+    };
+    s.onerror = function () { finish(); };
+    s.src = 'https://textdb.dev/api/data/csq2-lottery-live-2026a1?_=' + Date.now();
+    document.head.appendChild(s);
+  }
+
+  /* ---------------- 渲染 ---------------- */
+  function ballHTML(n, cls, vote, sm) {
+    return '<span class="ball ' + cls + (sm ? ' sm' : '') + '">' + pad2(n) + (vote != null ? '<i>' + vote + '票</i>' : '') + '</span>';
+  }
+  function fmtTime(iso) {
+    if (!iso) return '—';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return String(iso);
+    try { return d.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }); } catch (e) { return d.toISOString(); }
+  }
+  function renderMeta() {
+    var s = app.data.ssq, d = app.data.dlt;
+    var up = s.updatedAt || d.updatedAt || '';
+    el('metaLine').innerHTML =
+      '🔴 双色球最新 <b>' + esc(s.rows[0] ? s.rows[0].issue : '—') + '</b> 期 · 🔵 大乐透最新 <b>' + esc(d.rows[0] ? d.rows[0].issue : '—') + '</b> 期<br>' +
+      '数据更新 ' + esc(fmtTime(up)) + ' · ' + esc(s.src === '内置快照' && d.src === '内置快照' ? s.src : (s.src || '')) + ' · 开奖后 Actions 自动同步';
+  }
+
+  function recView(g) {
+    var eng = g === 'ssq' ? SQ : DL;
+    var rows = app.data[g].rows;
+    var name = g === 'ssq' ? '双色球' : '大乐透';
+    var isS = g === 'ssq';
+    if (rows.length < 30) return '<div class="card"><h2>' + name + '</h2><p class="note">数据不足（' + rows.length + ' 期，需 ≥30 期）。</p></div>';
+    var rec = memo(g, 'rec', function () { return eng.recommend(rows); });
+    var next = C.nextIssue(rows[0].issue);
+    var finals = isS ? rec.finalRed : rec.finalFront;
+    var backs = isS ? [rec.finalBlue] : rec.finalBack;
+    var maxV = isS ? rec.maxRedVotes : rec.maxFrontVotes;
+    var h = '';
+    h += '<div class="card final">';
+    h += '<h2>🗳 票选合成推荐 · 第 ' + esc(next) + ' 期参考</h2>';
+    h += '<div class="meta2">基于 ' + rec.nD + ' 期官方数据 · 8 式独立公式逐号投票 · 平票按式序→号码定序（全程无随机数，可复算）</div>';
+    h += '<div class="balls">';
+    for (var i = 0; i < finals.length; i++) h += ballHTML(finals[i], 'red', rec.votes[finals[i]] || 0);
+    for (var i2 = 0; i2 < backs.length; i2++) h += ballHTML(backs[i2], 'blue', rec.blueVotes[backs[i2]] || 0);
+    h += '</div>';
+    if (maxV <= 2) h += '<p class="note">本期票选较分散（最高 ' + maxV + ' 票）：以上为并列领先者的确定性取舍，建议同时参考下方各公式注。</p>';
+    h += '<div class="meta2">近' + (isS ? '100' : '20') + '期和值参考：μ=' + rec.mu + '，σ=' + rec.sd + '</div>';
+    h += '</div>';
+
+    var vs = Object.keys(rec.votes).map(Number).sort(function (a, b) { return rec.votes[b] - rec.votes[a] || rec.weights[b] - rec.weights[a] || a - b; }).slice(0, 12);
+    h += '<div class="card"><h2>📊 ' + (isS ? '红球' : '前区') + '投票热度 Top12</h2><div class="balls hot">';
+    for (var i3 = 0; i3 < vs.length; i3++) h += ballHTML(vs[i3], 'ghost', rec.votes[vs[i3]], true);
+    h += '</div></div>';
+
+    h += '<div class="card"><h2>🧮 8 式独立公式注（每式一注，即该式「产生」的号码）</h2>';
+    for (var i4 = 0; i4 < rec.per.length; i4++) {
+      var f = rec.per[i4];
+      h += '<div class="frow"><div class="fname"><b>' + (i4 + 1) + '. ' + esc(f.name) + '</b><span class="tag">' + esc(f.short) + '</span></div><div class="its">';
+      var nums = isS ? f.red : f.front;
+      for (var i5 = 0; i5 < nums.length; i5++) h += ballHTML(nums[i5], 'red');
+      var fb = isS ? [f.blue] : f.back;
+      for (var i6 = 0; i6 < fb.length; i6++) h += ballHTML(fb[i6], 'blue');
+      h += '</div><div class="why">' + esc(f.why) + '</div></div>';
+    }
+    h += '</div>';
+    return h;
+  }
+
+  function replayView() {
+    var g = app.sub;
+    var eng = g === 'ssq' ? SQ : DL;
+    var rows = app.data[g].rows;
+    var isS = g === 'ssq';
+    var h = '<div class="subtabs"><button data-sub="ssq" class="' + (isS ? 'on' : '') + '">🔴 双色球</button><button data-sub="dlt" class="' + (!isS ? 'on' : '') + '">🔵 大乐透</button></div>';
+    if (rows.length < 61) { h += '<div class="card"><p class="note">数据不足 61 期，暂无法复盘。</p></div>'; return h; }
+    var rp = memo(g, 'replay', function () { return eng.replay(rows, 15); });
+    if (!rp.length) { h += '<div class="card"><p class="note">暂无可复盘期。</p></div>'; return h; }
+    var sumHits = 0, sumSub = 0, fagg = {};
+    for (var i = 0; i < rp.length; i++) {
+      sumHits += isS ? rp[i].redHits : rp[i].frontHits;
+      sumSub += isS ? rp[i].blueHit : (rp[i].backHits > 0 ? 1 : 0);
+      for (var k = 0; k < rp[i].formulaHits.length; k++) {
+        var fh = rp[i].formulaHits[k];
+        var key = fh.id + '|' + fh.name;
+        fagg[key] = fagg[key] || { hits: 0, sub: 0 };
+        fagg[key].hits += fh.hits;
+        fagg[key].sub += isS ? fh.blueHit : (fh.backHits > 0 ? 1 : 0);
+      }
+    }
+    var n = rp.length;
+    var exp = isS ? 1.09 : 0.71;
+    h += '<div class="card"><h2>📋 自动复盘（近 ' + n + ' 期 · 每期用开奖前数据重算）</h2>';
+    h += '<div class="meta2">平均' + (isS ? '红球' : '前区') + '命中 <b>' + (sumHits / n).toFixed(2) + '</b> 枚/期（理论随机期望 ' + exp + '）· ' + (isS ? '蓝球' : '后区至少1枚') + '命中 ' + sumSub + '/' + n + ' 期</div>';
+    h += '<table><thead><tr><th>期号</th><th>当时推荐</th><th>实际开奖</th><th>命中</th></tr></thead><tbody>';
+    for (var i2 = 0; i2 < rp.length; i2++) {
+      var e = rp[i2];
+      var recStr = isS
+        ? e.rec.finalRed.map(pad2).join(' ') + ' <b class="bluetxt">+' + pad2(e.rec.finalBlue) + '</b>'
+        : e.rec.finalFront.map(pad2).join(' ') + ' <b class="bluetxt">+' + e.rec.finalBack.map(pad2).join(' ') + '</b>';
+      var actStr = isS
+        ? e.actual.red.map(pad2).join(' ') + ' <b class="bluetxt">+' + pad2(e.actual.blue) + '</b>'
+        : e.actual.front.map(pad2).join(' ') + ' <b class="bluetxt">+' + e.actual.back.map(pad2).join(' ') + '</b>';
+      var hits = isS ? e.redHits : e.frontHits;
+      var sub = isS ? (e.blueHit ? ' ·蓝✓' : '') : (e.backHits > 0 ? ' ·后' + e.backHits : '');
+      h += '<tr><td>' + esc(e.issue) + '</td><td class="mono">' + recStr + '</td><td class="mono">' + actStr + '</td><td><span class="hitbadge h' + Math.min(hits, 3) + '">' + (isS ? '红' : '前') + hits + sub + '</span></td></tr>';
+    }
+    h += '</tbody></table>';
+    h += '<p class="note">复盘为确定性重算：每期推荐仅用该期开奖之前的数据计算，与当时打开页面得到的推荐完全一致，无事后拟合。命中波动属正常随机现象，不代表预测能力。</p>';
+    h += '</div>';
+    var arr = Object.keys(fagg).map(function (k) { var p = k.split('|'); return { id: p[0], name: p[1], hits: fagg[k].hits, sub: fagg[k].sub }; });
+    arr.sort(function (a, b) { return b.hits - a.hits || b.sub - a.sub || (a.id < b.id ? -1 : 1); });
+    h += '<div class="card"><h2>🏆 公式命中榜（近 ' + n + ' 期合计）</h2>';
+    for (var i3 = 0; i3 < arr.length; i3++) {
+      h += '<div class="rankrow"><span>' + esc(arr[i3].name) + '</span><b>' + (isS ? '红' : '前') + arr[i3].hits + ' · ' + (isS ? '蓝' : '后') + arr[i3].sub + '</b></div>';
+    }
+    h += '<p class="note">样本过小，榜单仅反映近期随机波动，不构成公式优劣的统计结论。</p></div>';
+    return h;
+  }
+
+  function helpView() {
+    var h = '';
+    h += '<div class="card"><h2>🧮 方法体系：每式一个独立科学方法</h2>';
+    h += '<div class="klist"><b>双色球（红 6/33 + 蓝 1/16）</b><br>';
+    h += '<span class="tag">贝叶斯</span>贝叶斯频率式：30期证据+100期先验的后验收缩概率<br>';
+    h += '<span class="tag">和值</span>和值密度式：历史和值正态近似，取密度最高带 μ±0.4σ<br>';
+    h += '<span class="tag">奇偶</span>奇偶形态式：奇数/大号枚数匹配近100期众数形态类<br>';
+    h += '<span class="tag">质合</span>质合形态式：质数枚数匹配历史众数（质数=2,3,5,7,11,13,17,19,23,29,31）<br>';
+    h += '<span class="tag">危险率</span>遗漏危险率式：hazard=当前遗漏÷平均间隔（生存分析视角）<br>';
+    h += '<span class="tag">转移</span>马尔可夫承接式：上期→下期一阶转移矩阵+±1邻号承接<br>';
+    h += '<span class="tag">覆盖</span>覆盖设计式：三区2:2:2+尾数覆盖≥5（组合覆盖设计）<br>';
+    h += '<span class="tag">心理</span>心理冷门式：反热门博弈——中奖概率不变，期望分成更高<br></div>';
+    h += '<div class="klist"><b>大乐透（前 5/35 + 后 2/12，与双色球独立实现）</b><br>';
+    h += '<span class="tag">后验</span>后验优势式：20期证据+120期先验（窗口/强度均不同）<br>';
+    h += '<span class="tag">通道</span>和值通道式：20期回归通道动态中心+均值回复相位<br>';
+    h += '<span class="tag">奇偶</span>奇偶动力学式：近20期众数相对近60期众数的动量定窗<br>';
+    h += '<span class="tag">质数</span>质数结构式：近60期质数枚数众数约束<br>';
+    h += '<span class="tag">相位</span>周期相位式：遗漏÷中位间隔（中位数口径）<br>';
+    h += '<span class="tag">转移</span>同尾转移式：全转移×1.0+同尾×0.6+邻号×0.5 三矩阵<br>';
+    h += '<span class="tag">覆盖</span>区间覆盖式：12/12/11 三区2:2:1+尾数覆盖≥4<br>';
+    h += '<span class="tag">心理</span>反热门博弈式：独立热门度表（含5倍整数/票面几何）<br></div>';
+    h += '<p class="note">两彩种公式为各自独立实现（不同号码池/窗口/口径/代码），无任何共享选号逻辑；每式仅一个主驱动，其余统计量只作平票排序，避免冗余。全程无随机数：同一数据永远得到同一组号。</p>';
+    h += '</div>';
+    h += '<div class="card"><h2>🗳 投票合成规则</h2>';
+    h += '<div class="klist">8 式各产出 1 注 → 对每个号码计票（双色球红球每式 6 票、大乐透前区每式 5 票）→ 票数最高者组成推荐号；平票依次按「投它 formulas 的式序权重和 → 号码升序」确定性取舍。蓝球/后区同理。</div></div>';
+    h += '<div class="card"><h2>🔄 开奖数据自动更新 + 复盘</h2>';
+    h += '<div class="klist">① 本仓库由 <b>GitHub Actions</b> 于每日 <b>21:35 / 22:05 / 次日 09:30</b>（北京时间）自动抓取福彩/体彩官网开奖数据并提交；<br>② 页面每次打开自动拉取最新 data/*.json（另有镜像频道兜底），开奖后即可看到最新开奖；<br>③ <b>复盘</b>页自动逐期重算「当时会推荐什么」并对照实际开奖；<br>④ 推荐区自动以最新数据推导<b>下一期</b>参考号——开奖后无需任何手动操作。</div></div>';
+    h += '<div class="card"><h2>⚠️ 诚实声明</h2>';
+    h += '<div class="klist">彩票每期开奖为独立随机事件，任何统计公式都不能提高中奖概率。心理冷门式的价值仅在于「中奖概率不变的前提下降低与他人重号概率→期望分成更高」。复盘命中数的波动属正常随机现象。请理性购彩，量力而行。</div></div>';
+    return h;
+  }
+
+  /* ---------------- 事件与启动 ---------------- */
+  var toastT = null;
+  function toast(msg) {
+    var t = el('toast');
+    t.textContent = msg;
+    t.className = '';
+    if (toastT) clearTimeout(toastT);
+    toastT = setTimeout(function () { t.className = 'hide'; }, 3400);
+  }
+
+  function render() {
+    renderMeta();
+    var v = el('view');
+    try {
+      if (app.tab === 'ssq') v.innerHTML = recView('ssq');
+      else if (app.tab === 'dlt') v.innerHTML = recView('dlt');
+      else if (app.tab === 'replay') v.innerHTML = replayView();
+      else v.innerHTML = helpView();
+    } catch (e) {
+      v.innerHTML = '<div class="card"><h2>渲染异常</h2><p class="note">' + esc(e && e.message || e) + '</p></div>';
+    }
+  }
+  function bind() {
+    var tabs = document.querySelectorAll('#tabs button');
+    for (var i = 0; i < tabs.length; i++) {
+      tabs[i].addEventListener('click', function (ev) {
+        var t = ev.currentTarget.getAttribute('data-tab');
+        app.tab = t;
+        for (var j = 0; j < tabs.length; j++) tabs[j].className = tabs[j].getAttribute('data-tab') === t ? 'on' : '';
+        render();
+        window.scrollTo(0, 0);
+      });
+    }
+    document.addEventListener('click', function (ev) {
+      var b = ev.target && ev.target.closest ? ev.target.closest('[data-sub]') : null;
+      if (b) { app.sub = b.getAttribute('data-sub'); render(); }
+    });
+    el('btnRefresh').addEventListener('click', function () { toast('正在检查更新…'); refresh(false); });
+  }
+
+  function boot() {
+    initBaked();
+    bind();
+    render();
+    app.booted = true;
+    refresh(true);
+  }
+  boot();
+
+  /* 供自动化测试/用户调试 */
+  window.__APP__ = { app: app, refresh: refresh, render: render, SQ: SQ, DL: DL };
+})();
+
+</script>
+</body>
+</html>
