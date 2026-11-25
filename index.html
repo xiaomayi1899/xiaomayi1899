@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1020">
-<meta name="description" content="双色球·大乐透 15式独立科学公式·每式1票委员会合成·可量化评估（Brier/BSS/z检验），开奖后自动同步数据并复盘">
+<meta name="description" content="双色球·大乐透 55式独立统计公式·七大家族·每式1票委员会合成·可量化评估（Brier/BSS/z检验），开奖后自动同步数据并复盘">
 <title>双色球·大乐透 公式投票选号</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -98,7 +98,7 @@ footer{font-size:10px;color:#5e6f94;text-align:center;padding:20px 0 0;line-heig
     <button data-tab="help">📖 说明</button>
   </nav>
   <main id="view"></main>
-  <footer>开奖为独立随机事件 · 统计工具不改变中奖概率 · 量化层只做诚实度量 · 仅供娱乐参考<br>数据源：福彩官网 / 体彩官网 · GitHub Actions 开奖后自动同步 · 引擎 2026e1 一票制</footer>
+  <footer>开奖为独立随机事件 · 统计工具不改变中奖概率 · 量化层只做诚实度量 · 仅供娱乐参考<br>数据源：福彩官网 / 体彩官网 · GitHub Actions 开奖后自动同步 · 引擎 2026f1 一票制 55 式</footer>
 </div>
 <div id="toast" class="hide"></div>
 <script>
@@ -196,12 +196,10 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-25T02:
 /*__ENGINE_COMMON_END__*/
 /*__ENGINE_SSQ_START__*/
 /* ============================================================
- * 【双色球独立公式引擎】15 式 · 每式一个独立科学方法（无冗余）
+ * 【双色球独立公式引擎】55 式 · 每式一个独立主驱动统计量（无堆权重、无命理）
  * 红球池 1-33 选 6，蓝球池 1-16 选 1
- * 维度：贝叶斯频率 / 和值密度 / 奇偶形态 / 质合形态 /
- *       遗漏危险率 / 马尔可夫转移 / 区间覆盖 / 反热门博弈 /
- *       趋势残差 / 反共现 / 模型平均 / 尾数谱 / 跨度结构 / 间隔节律 / 频机动量
- * 一票制：每式只举 1 个主号（主驱动分数 argmax）→ 15 票合成 6 席
+ * 家族：频率与先验 / 遗漏与节奏 / 结构形态 / 转移与条件 / 网络与图 / 趋势与谱 / 集成
+ * 一票制：每式只举 1 个主号（主驱动分数 argmax）→ 55 票合成 6 席
  * 量化层：每式主驱动分数 → 统一概率口径（z 标准化 log-linear 倾斜）
  *         → Brier/对数得分可评分 + Borda 计分 + 多注输出
  * 与大乐透引擎零共享；全程无随机数，同一数据永远同一结果
@@ -995,6 +993,623 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-25T02:
     return { red: red, blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=频机动量：各号近10期出现率与近30期出现率之比（拉普拉斯平滑），比值>1 即在升温——动量跟随视角（与贝叶斯式看水平、趋势式看残差互为不同统计量）；蓝球同法' };
   }
 
+  /* ================ 扩容 40 式（s16-s55）公共小助手 ================ */
+  function medianS(a) { if (!a.length) return 0; var b2 = a.slice().sort(asc), m = b2.length; return m % 2 ? b2[(m - 1) / 2] : (b2[m / 2 - 1] + b2[m / 2]) / 2; }
+  function gapsChron(rows, has, n) { /* 时间正序出现间隔序列 */
+    var pos = [];
+    for (var i = rows.length - 1; i >= 0; i--) if (has(rows[i], n)) pos.push(rows.length - 1 - i);
+    var g = [];
+    for (var k = 1; k < pos.length; k++) g.push(pos[k] - pos[k - 1]);
+    return g;
+  }
+  function skewOf(a) { var m = a.length; if (m < 3) return 0; var mu = mean(a), s = sd(a); if (s < 1e-9) return 0; var m3 = 0; for (var i = 0; i < m; i++) { var d = a[i] - mu; m3 += d * d * d; } return (m3 / m) / (s * s * s); }
+  function slopeOf(a) { var m = a.length; if (m < 3) return 0; var mx = 0, my = 0, i; for (i = 0; i < m; i++) { mx += i; my += a[i]; } mx /= m; my /= m; var num = 0, den = 0; for (i = 0; i < m; i++) { num += (i - mx) * (a[i] - my); den += (i - mx) * (i - mx); } return den > 0 ? num / den : 0; }
+  function combo6(c, sR, cons) { return pickCombo(candsOf(function (x) { return sR[x] * 1000; }), 6, cons || GUARD(c)); }
+  function hasRed(rw, x) { return rw.red.indexOf(x) >= 0; }
+  function hasBlue(rw, x) { return rw.blue === x; }
+
+  /* ---- 频率与先验家族 ---- */
+  function f16(c) { /* EWMA频率式 */
+    var rows = c.rows, lam = 0.975, ew = {}, bs = {}, i, j, n, b;
+    var wsum = 0, bsum = 0, wt = 1;
+    for (n = 1; n <= 33; n++) ew[n] = 0;
+    for (b = 1; b <= 16; b++) bs[b] = 0;
+    for (i = 0; i < rows.length; i++) {
+      for (j = 0; j < rows[i].red.length; j++) ew[rows[i].red[j]] += wt;
+      bs[rows[i].blue] += wt;
+      wsum += wt; bsum += wt;
+      wt *= lam;
+    }
+    var sR = {}, sB = {};
+    for (n = 1; n <= 33; n++) sR[n] = ew[n] / wsum;
+    for (b = 1; b <= 16; b++) sB[b] = bs[b] / bsum;
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=指数加权频率：按距今指数衰减（单期0.975，半衰期约24期）加权出现率——连续时间核，与均匀窗、双窗比值都不同' }; 
+  }
+  function f17(c) { /* 稳健频率式（块中位） */
+    var rows = c.rows, B = 6, L = 20, sR = {}, sB = {};
+    for (var n = 1; n <= 33; n++) {
+      var cs = [];
+      for (var bi = 0; bi < B; bi++) { var cnt = 0; for (var i = bi * L; i < (bi + 1) * L && i < rows.length; i++) if (rows[i].red.indexOf(n) >= 0) cnt++; cs.push(cnt); }
+      cs.sort(asc); sR[n] = (cs[2] + cs[3]) / 2;
+    }
+    for (var b = 1; b <= 16; b++) {
+      var cb2 = [], L2 = 16;
+      for (bi = 0; bi < B; bi++) { var c2 = 0; for (var i2 = bi * L2; i2 < (bi + 1) * L2 && i2 < rows.length; i2++) if (rows[i2].blue === b) c2++; cb2.push(c2); }
+      cb2.sort(asc); sB[b] = (cb2[2] + cb2[3]) / 2;
+    }
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=块中位频率：120期分6块取各号出现次数的中位数——对异常块稳健的集中趋势（鲁棒统计）' };
+  }
+  function f18(c) { /* 先验敏感式（Jeffreys） */
+    var rows = c.rows, N = Math.min(150, rows.length), sR = {}, sB = {}, fB = {};
+    var fR = redFreq(rows, N);
+    for (var i = 0; i < N; i++) fB[rows[i].blue] = (fB[rows[i].blue] || 0) + 1;
+    for (var n = 1; n <= 33; n++) sR[n] = (fR[n] + 0.5) / (N + 1);
+    for (var b = 1; b <= 16; b++) sB[b] = ((fB[b] || 0) + 0.5) / (N + 1);
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=杰氏先验后验：无信息 Beta(0.5,0.5) 先验下全历史后验均值 (f+0.5)/(N+1)——与经验先验收缩式不同先验结构（先验敏感性对照）' };
+  }
+  function f19(c) { /* 纯遗漏式 */
+    var sR = {}, sB = {};
+    for (var n = 1; n <= 33; n++) sR[n] = c.om[n];
+    for (var b = 1; b <= 16; b++) sB[b] = c.bOm[b];
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=原始遗漏榜：当前连续遗漏期数直接排序（回补的原始口径；与危险率/长休眠/中位/分位四种归一化互不相同）' };
+  }
+  function f20(c) { /* 可信下界式 */
+    var rows = c.rows, N = Math.min(100, rows.length), sR = {}, sB = {}, fB = {};
+    var fR = redFreq(rows, N);
+    for (var i = 0; i < N; i++) fB[rows[i].blue] = (fB[rows[i].blue] || 0) + 1;
+    for (var n = 1; n <= 33; n++) { var p = (fR[n] + 1) / (N + 2); sR[n] = p - 1.645 * Math.sqrt(p * (1 - p) / (N + 2)); }
+    for (var b = 1; b <= 16; b++) { var p2 = ((fB[b] || 0) + 1) / (N + 2); sB[b] = p2 - 1.645 * Math.sqrt(p2 * (1 - p2) / (N + 2)); }
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=可信下界：Beta后验5%下分位（悲观热度）——决策论保守规则，与后验均值式（乐观准则）不同决策准则' };
+  }
+  function f21(c) { /* 空间核平滑式 */
+    var f60 = redFreq(c.rows, 60), sR = {}, sB = {};
+    function cl(x, lo, hi) { return x < lo ? lo : (x > hi ? hi : x); }
+    for (var n = 1; n <= 33; n++) { var s = 0; for (var k = -2; k <= 2; k++) s += f60[cl(n + k, 1, 33)]; sR[n] = s / 5; }
+    var b30 = c.b30 || {};
+    for (var b = 1; b <= 16; b++) sB[b] = ((b30[cl(b - 1, 1, 16)] || 0) + (b30[b] || 0) + (b30[cl(b + 1, 1, 16)] || 0)) / 3;
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=空间核平滑：号轴±2邻域的60期频率均值（带宽2核密度）——空间平滑尺度，与逐号频率不同分辨率' };
+  }
+
+  /* ---- 结构形态家族（分割谱/几何） ---- */
+  function f22(c) { /* 012路式 */
+    var rows = c.rows, W = Math.min(100, rows.length), cnt = [0, 0, 0], size = [0, 0, 0];
+    for (var n = 1; n <= 33; n++) size[n % 3]++;
+    for (var i = 0; i < W; i++) for (var j = 0; j < 6; j++) cnt[rows[i].red[j] % 3]++;
+    var sR = {};
+    for (n = 1; n <= 33; n++) { var eT = W * size[n % 3] / 33; var z = eT > 0 ? (cnt[n % 3] - eT) / Math.sqrt(eT) : 0; sR[n] = c.pB[n] * Math.exp(0.3 * (-z)); }
+    var cb = [0, 0, 0], sb = [0, 0, 0], W2 = Math.min(30, rows.length);
+    for (var b = 1; b <= 16; b++) sb[b % 3]++;
+    for (i = 0; i < W2; i++) cb[rows[i].blue % 3]++;
+    var sB = {};
+    for (b = 1; b <= 16; b++) { var e2 = W2 * sb[b % 3] / 16; var z2 = e2 > 0 ? (cb[b % 3] - e2) / Math.sqrt(e2) : 0; sB[b] = c.pBB[b] * Math.exp(0.25 * (-z2)); }
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=012路谱偏离：mod 3 余数分路的频谱标准化偏离（欠开路回补）——彩票常规012路维度，与尾数谱（mod 10）不同分割' };
+  }
+  function f23(c) { /* 行列几何式 */
+    var rows = c.rows, W = Math.min(100, rows.length);
+    var rc = [0, 0, 0, 0, 0, 0], cc = [0, 0, 0, 0, 0, 0], rs = [0, 0, 0, 0, 0, 0], cs2 = [0, 0, 0, 0, 0, 0];
+    for (var n = 1; n <= 33; n++) { rs[Math.floor((n - 1) / 6)]++; cs2[(n - 1) % 6]++; }
+    for (var i = 0; i < W; i++) for (var j = 0; j < 6; j++) { var d = rows[i].red[j]; rc[Math.floor((d - 1) / 6)]++; cc[(d - 1) % 6]++; }
+    var sR = {};
+    for (n = 1; n <= 33; n++) {
+      var ri = Math.floor((n - 1) / 6), ci = (n - 1) % 6;
+      var er = W * rs[ri] / 33, ec = W * cs2[ci] / 33;
+      var zr = er > 0 ? (rc[ri] - er) / Math.sqrt(er) : 0, zc = ec > 0 ? (cc[ci] - ec) / Math.sqrt(ec) : 0;
+      sR[n] = c.pB[n] * Math.exp(0.2 * (-zr - zc));
+    }
+    var br = [0, 0, 0, 0], bc = [0, 0, 0, 0], W2 = Math.min(30, rows.length);
+    for (i = 0; i < W2; i++) { var bl = rows[i].blue; br[Math.floor((bl - 1) / 4)]++; bc[(bl - 1) % 4]++; }
+    var sB = {};
+    for (var b = 1; b <= 16; b++) {
+      var er2 = W2 / 4, zr2 = (br[Math.floor((b - 1) / 4)] - er2) / Math.sqrt(er2), zc2 = (bc[(b - 1) % 4] - er2) / Math.sqrt(er2);
+      sB[b] = c.pBB[b] * Math.exp(0.2 * (-zr2 - zc2));
+    }
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=票面行列谱：官方票面 6×6 网格行/列频谱偏离（大众按行列视觉选号的几何假设）；蓝球 4×4 网格同法' };
+  }
+  function f38(c) { /* 区间偏离式 */
+    var rows = c.rows, W = Math.min(100, rows.length);
+    function zone(x) { return x <= 11 ? 0 : (x <= 22 ? 1 : 2); }
+    var zc = [0, 0, 0], zs = [11, 11, 11];
+    for (var i = 0; i < W; i++) for (var j = 0; j < 6; j++) zc[zone(rows[i].red[j])]++;
+    var sR = {};
+    for (var n = 1; n <= 33; n++) { var eT = W * zs[zone(n)] / 33; var z = eT > 0 ? (zc[zone(n)] - eT) / Math.sqrt(eT) : 0; sR[n] = c.pB[n] * Math.exp(0.3 * (-z)); }
+    var sB = {};
+    for (var b = 1; b <= 16; b++) sB[b] = c.pBB[b];
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=区间偏离：三区频谱对均匀期望的标准化偏离（欠开区回补）——统计口径，与覆盖设计式（结构配额）不同方法' };
+  }
+  function f53(c) { /* 断区式 */
+    var rows = c.rows;
+    function zone(x) { return x <= 11 ? 0 : (x <= 22 ? 1 : 2); }
+    var zhit = [0, 0, 0];
+    for (var i = 0; i < 4 && i < rows.length; i++) for (var j = 0; j < 6; j++) zhit[zone(rows[i].red[j])]++;
+    var sR = {};
+    for (var n = 1; n <= 33; n++) sR[n] = c.pB[n] * Math.exp(zhit[zone(n)] === 0 ? 0.4 : 0);
+    var sB = {};
+    for (var b = 1; b <= 16; b++) sB[b] = c.pBB[b];
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=断区回补：近4期整区未开的断区号码回补（短窗集合逻辑），与区间偏离式（百期z谱）不同时间尺度' };
+  }
+  function f48(c) { /* 镜像补位式 */
+    var f150 = redFreq(c.rows, 150), bAll = {}, sR = {}, sB = {};
+    for (var i = 0; i < c.rows.length; i++) bAll[c.rows[i].blue] = (bAll[c.rows[i].blue] || 0) + 1;
+    for (var n = 1; n <= 33; n++) sR[n] = f150[34 - n] + 0.001 * c.pB[n];
+    for (var b = 1; b <= 16; b++) sB[b] = (bAll[17 - b] || 0) + 0.001 * c.pBB[b];
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=镜像补位：号轴对称位（34−n）伴号频率（对称结构假说，可检验的结构维度）' };
+  }
+  function f35(c) { /* 边界角色式 */
+    var rows = c.rows, W = rows.length, mn = {}, mx = {}, sR = {}, sB = {};
+    for (var n = 1; n <= 33; n++) { mn[n] = 0; mx[n] = 0; }
+    for (var i = 0; i < W; i++) { var d = rows[i].red; mn[d[0]]++; mx[d[5]]++; }
+    for (n = 1; n <= 33; n++) sR[n] = (mn[n] + mx[n]) / W;
+    for (var b = 1; b <= 16; b++) sB[b] = c.pBB[b];
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=边界角色：各号担任当期最小/最大号的频率（边界常客）——排序位置角色维度，与值频率不同口径；蓝球无位置概念取后验' };
+  }
+
+  /* ---- 遗漏与节奏家族 ---- */
+  function f26(c) { /* 间隔偏度式 */
+    var sR = {}, sB = {};
+    for (var n = 1; n <= 33; n++) sR[n] = -skewOf(gapsChron(c.rows, hasRed, n));
+    for (var b = 1; b <= 16; b++) sB[b] = -skewOf(gapsChron(c.rows, hasBlue, b));
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=间隔偏度：出现间隔序列的三阶矩偏度（负偏=短间隔为主的节奏形态）——间隔形状的三阶矩，与节律式的二阶矩（CV）不同' };
+  }
+  function f27(c) { /* 节奏斜率式 */
+    var sR = {}, sB = {};
+    for (var n = 1; n <= 33; n++) sR[n] = -slopeOf(gapsChron(c.rows, hasRed, n).slice(-6));
+    for (var b = 1; b <= 16; b++) sB[b] = -slopeOf(gapsChron(c.rows, hasBlue, b).slice(-6));
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=节奏斜率：最近6个间隔的线性回归斜率（负=间隔缩短=出场加快）——节奏趋势，与节律式（波动度）、危险率式（水平）不同' };
+  }
+  function f28(c) { /* 长休眠回补式 */
+    var sR = {}, sB = {};
+    for (var n = 1; n <= 33; n++) { var g = gapsChron(c.rows, hasRed, n), mx = 0; for (var i = 0; i < g.length; i++) if (g[i] > mx) mx = g[i]; sR[n] = c.om[n] / Math.max(mx, 1); }
+    for (var b = 1; b <= 16; b++) { var g2 = gapsChron(c.rows, hasBlue, b), mx2 = 0; for (var i2 = 0; i2 < g2.length; i2++) if (g2[i2] > mx2) mx2 = g2[i2]; sB[b] = c.bOm[b] / Math.max(mx2, 1); }
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=长休眠比：当前遗漏÷历史最大间隔（超出自身极值节奏的深度）——极值归一化，与均值/中位/分位基准互不相同' };
+  }
+  function f40(c) { /* 分层收缩式 */
+    var rows = c.rows, W = Math.min(100, rows.length), fR = redFreq(rows, W), sR = {}, sB = {}, i, b;
+    function zone(x) { return x <= 11 ? 0 : (x <= 22 ? 1 : 2); }
+    var zsum = [0, 0, 0], gmu = 0;
+    for (var n = 1; n <= 33; n++) { zsum[zone(n)] += fR[n] / W; gmu += fR[n] / W; }
+    gmu /= 33;
+    var zpost = [];
+    for (i = 0; i < 3; i++) zpost.push((zsum[i] + 6 * gmu) / (11 + 6));
+    for (n = 1; n <= 33; n++) sR[n] = (fR[n] / W + 4 * zpost[zone(n)]) / (1 + 4);
+    var fB = {};
+    for (i = 0; i < Math.min(30, rows.length); i++) fB[rows[i].blue] = (fB[rows[i].blue] || 0) + 1;
+    var omu = 0, emu = 0;
+    for (b = 1; b <= 16; b++) { var p = (fB[b] || 0) / 30; if (b % 2) omu += p; else emu += p; }
+    omu /= 8; emu /= 8;
+    for (b = 1; b <= 16; b++) { var p2 = (fB[b] || 0) / 30; var cp = b % 2 ? omu : emu; sB[b] = (p2 + 2 * cp) / (1 + 2); }
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=分层收缩：号码频率向所属区后验收缩、区后验再向全局收缩的两级经验贝叶斯（蓝球按奇偶类收缩）——多层级估计，与单层收缩式（s1）不同层级深度' };
+  }
+  function f41(c) { /* 中位间隔式 */
+    var sR = {}, sB = {};
+    for (var n = 1; n <= 33; n++) sR[n] = c.om[n] / Math.max(medianS(gapsChron(c.rows, hasRed, n)), 1);
+    for (var b = 1; b <= 16; b++) sB[b] = c.bOm[b] / Math.max(medianS(gapsChron(c.rows, hasBlue, b)), 1);
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=中位间隔相位：当前遗漏÷间隔中位数（稳健位置基准），与危险率式（均值基准）不同集中趋势' };
+  }
+  function f55(c) { /* 间隔分位式 */
+    var sR = {}, sB = {};
+    for (var n = 1; n <= 33; n++) {
+      var g = gapsChron(c.rows, hasRed, n);
+      if (g.length < 2) { sR[n] = 0.5; continue; }
+      var q = 0; for (var i = 0; i < g.length; i++) if (g[i] <= c.om[n]) q++;
+      sR[n] = q / g.length;
+    }
+    for (var b = 1; b <= 16; b++) {
+      var g2 = gapsChron(c.rows, hasBlue, b);
+      if (g2.length < 2) { sB[b] = 0.5; continue; }
+      var q2 = 0; for (var i2 = 0; i2 < g2.length; i2++) if (g2[i2] <= c.bOm[b]) q2++;
+      sB[b] = q2 / g2.length;
+    }
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=间隔分位：当前遗漏在自身间隔经验分布中的分位数（非参数相位，不假设分布形状）——归一化的第四种口径（经验分布）' };
+  }
+
+  /* ---- 转移与条件家族 ---- */
+  function f24(c) { /* 二阶承接式 */
+    var rows = c.rows, T2 = {}, T2B = {}, i, a;
+    for (i = 0; i + 2 < rows.length; i++) {
+      var nxt = rows[i], pre = rows[i + 2];
+      for (a = 0; a < pre.red.length; a++) {
+        var x = pre.red[a];
+        T2[x] = T2[x] || {};
+        for (var b2 = 0; b2 < nxt.red.length; b2++) T2[x][nxt.red[b2]] = (T2[x][nxt.red[b2]] || 0) + 1;
+      }
+      var xb = pre.blue, nb = nxt.blue;
+      T2B[xb] = T2B[xb] || {};
+      T2B[xb][nb] = (T2B[xb][nb] || 0) + 1;
+    }
+    var anchor = rows[1] ? rows[1].red : rows[0].red, sR = {};
+    for (var n = 1; n <= 33; n++) { var s = 0; for (a = 0; a < anchor.length; a++) s += (T2[anchor[a]] && T2[anchor[a]][n]) || 0; sR[n] = s; }
+    var ab = rows[1] ? rows[1].blue : rows[0].blue, sB = {};
+    for (var b = 1; b <= 16; b++) sB[b] = (T2B[ab] && T2B[ab][b]) || 0;
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=二阶承接：隔一期转移矩阵（x在t−2→n在t）以 t−1 期为锚——与一阶承接式不同阶数' };
+  }
+  function f25(c) { /* 自相关式 */
+    var rows = c.rows, T = rows.length, sR = {}, sB = {};
+    for (var n = 1; n <= 33; n++) {
+      var y = [], mu = 0, i;
+      for (i = T - 1; i >= 0; i--) { var v = rows[i].red.indexOf(n) >= 0 ? 1 : 0; y.push(v); mu += v; }
+      mu /= T;
+      var num = 0, den = 0;
+      for (i = 0; i + 1 < T; i++) num += (y[i] - mu) * (y[i + 1] - mu);
+      for (i = 0; i < T; i++) { var dv = y[i] - mu; den += dv * dv; }
+      sR[n] = den > 0 ? num / den : 0;
+    }
+    for (var b = 1; b <= 16; b++) {
+      var yb = [], mu2 = 0;
+      for (i = T - 1; i >= 0; i--) { var v2 = rows[i].blue === b ? 1 : 0; yb.push(v2); mu2 += v2; }
+      mu2 /= T;
+      var num2 = 0, den2 = 0;
+      for (i = 0; i + 1 < T; i++) num2 += (yb[i] - mu2) * (yb[i + 1] - mu2);
+      for (i = 0; i < T; i++) { var dv2 = yb[i] - mu2; den2 += dv2 * dv2; }
+      sB[b] = den2 > 0 ? num2 / den2 : 0;
+    }
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=滞后1自相关：各号出现序列的自身前后期相关——逐号时间序列维度，与承接式的跨号转移不同' };
+  }
+  function f39(c) { /* 同尾承接式 */
+    var rows = c.rows, TT = {}, i, a;
+    for (i = 0; i + 1 < rows.length; i++) {
+      var pre = rows[i + 1], nxt = rows[i];
+      for (a = 0; a < pre.red.length; a++) {
+        var xt = pre.red[a] % 10;
+        TT[xt] = TT[xt] || {};
+        for (var b2 = 0; b2 < nxt.red.length; b2++) { var nt = nxt.red[b2] % 10; TT[xt][nt] = (TT[xt][nt] || 0) + 1; }
+      }
+      var pt = 'b' + (pre.blue % 10), nt2 = nxt.blue % 10;
+      TT[pt] = TT[pt] || {};
+      TT[pt][nt2] = (TT[pt][nt2] || 0) + 1;
+    }
+    var last = rows[0].red, sR = {};
+    for (var n = 1; n <= 33; n++) { var s = 0; for (a = 0; a < last.length; a++) s += (TT[last[a] % 10] && TT[last[a] % 10][n % 10]) || 0; sR[n] = s; }
+    var lbt = 'b' + (rows[0].blue % 10), sB = {};
+    for (var b = 1; b <= 16; b++) sB[b] = (TT[lbt] && TT[lbt][b % 10]) || 0;
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=同尾承接：尾位→尾位转移矩阵承接上期尾位——尾维度的时间转移（与尾数谱式的频谱水平不同：转移 vs 水平）' };
+  }
+  function f30(c) { /* 跨区亲和式 */
+    var rows = c.rows, RBC = {}, cntB = {};
+    for (var i = 0; i < rows.length; i++) {
+      var d = rows[i].red, bl = rows[i].blue;
+      cntB[bl] = (cntB[bl] || 0) + 1;
+      for (var a = 0; a < d.length; a++) { RBC[d[a]] = RBC[d[a]] || {}; RBC[d[a]][bl] = (RBC[d[a]][bl] || 0) + 1; }
+    }
+    var b0 = rows[0].blue, sR = {};
+    for (var n = 1; n <= 33; n++) sR[n] = cntB[b0] ? ((RBC[n] && RBC[n][b0]) || 0) / cntB[b0] : 0;
+    var lastRed = rows[0].red, sB = {};
+    for (var b = 1; b <= 16; b++) { var s = 0; for (var a2 = 0; a2 < lastRed.length; a2++) s += (RBC[lastRed[a2]] && RBC[lastRed[a2]][b]) || 0; sB[b] = cntB[b] ? s / cntB[b] : 0; }
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=跨区亲和：红球与上期蓝球的历史同现率（红蓝二部图关联）——跨区维度，与承接式的红→红转移不同区' };
+  }
+  function f34(c) { /* 和值奇偶条件式 */
+    var rows = c.rows, W = Math.min(120, rows.length);
+    function par(rw) { var s = 0; for (var j = 0; j < rw.red.length; j++) s += rw.red[j]; return s % 2; }
+    var cur = par(rows[0]), aggR = {}, aggB = {}, cnt = 0;
+    for (var n = 1; n <= 33; n++) aggR[n] = 0;
+    for (var b = 1; b <= 16; b++) aggB[b] = 0;
+    for (var i = 1; i < W; i++) if (par(rows[i]) === cur) { cnt++; var nxt = rows[i - 1]; for (var j = 0; j < 6; j++) aggR[nxt.red[j]]++; aggB[nxt.blue]++; }
+    var sR = {}, sB = {};
+    for (n = 1; n <= 33; n++) sR[n] = cnt >= 8 ? aggR[n] / cnt : c.pB[n];
+    for (b = 1; b <= 16; b++) sB[b] = cnt >= 8 ? aggB[b] / cnt : c.pBB[b];
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=和值奇偶条件：以上期和值奇偶为条件聚合历史下一期（条件样本 ' + cnt + ' 期，不足回退后验）' };
+  }
+  function f43(c) { /* 星期条件式 */
+    var rows = c.rows;
+    function wd(ds) { return new Date(ds + 'T00:00:00Z').getUTCDay(); }
+    var rot = { 2: 4, 4: 0, 0: 2 };
+    var lw = wd(rows[0].date), target = rot[lw] != null ? rot[lw] : lw;
+    var aggR = {}, aggB = {}, cnt = 0;
+    for (var n = 1; n <= 33; n++) aggR[n] = 0;
+    for (var b = 1; b <= 16; b++) aggB[b] = 0;
+    for (var i = 0; i < rows.length; i++) {
+      if (wd(rows[i].date) === target) {
+        cnt++;
+        for (var j = 0; j < 6; j++) aggR[rows[i].red[j]]++;
+        aggB[rows[i].blue]++;
+      }
+    }
+    var sR = {}, sB = {};
+    for (n = 1; n <= 33; n++) sR[n] = cnt >= 8 ? aggR[n] / cnt : c.pB[n];
+    for (b = 1; b <= 16; b++) sB[b] = cnt >= 8 ? aggB[b] / cnt : c.pBB[b];
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=星期条件：下期开奖星期已知（周二四日轮转），聚合历史上同星期开奖的号码频率（日历条件样本 ' + cnt + ' 期，不足回退后验）' };
+  }
+  function f44(c) { /* 后区引导式 */
+    var rows = c.rows, RBC = {}, cntB = {};
+    for (var i = 0; i < rows.length; i++) {
+      var d = rows[i].red, bl = rows[i].blue;
+      cntB[bl] = (cntB[bl] || 0) + 1;
+      for (var a = 0; a < d.length; a++) { RBC[d[a]] = RBC[d[a]] || {}; RBC[d[a]][bl] = (RBC[d[a]][bl] || 0) + 1; }
+    }
+    var arr = [];
+    for (var b = 1; b <= 16; b++) arr.push({ b: b, h: c.bOm[b] / Math.max(c.bAg[b], 2) });
+    arr.sort(function (x, y) { return y.h - x.h || x.b - y.b; });
+    var due = [arr[0].b, arr[1].b], sR = {};
+    for (var n = 1; n <= 33; n++) { var s = 0; for (var a2 = 0; a2 < due.length; a2++) s += cntB[due[a2]] ? ((RBC[n] && RBC[n][due[a2]]) || 0) / cntB[due[a2]] : 0; sR[n] = s / due.length; }
+    var sB = {};
+    for (b = 1; b <= 16; b++) sB[b] = c.pBB[b];
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=后区引导：先按危险率挑最「到期」的2个蓝球，再取与它们历史同现率最高的红球（蓝引红两级条件链）' };
+  }
+  function f45(c) { /* 近缺席回补式 */
+    var rows = c.rows, sR = {}, sB = {};
+    for (var n = 1; n <= 33; n++) {
+      var in5 = false, in2 = false;
+      for (var i = 0; i < 5 && i < rows.length; i++) if (rows[i].red.indexOf(n) >= 0) { in5 = true; if (i < 2) in2 = true; }
+      sR[n] = (in5 && !in2) ? 1 + c.pB[n] : 0.3 * c.pB[n];
+    }
+    for (var b = 1; b <= 16; b++) {
+      var in10 = false, in5b = false;
+      for (var i2 = 0; i2 < 10 && i2 < rows.length; i2++) if (rows[i2].blue === b) { in10 = true; if (i2 < 5) in5b = true; }
+      sB[b] = (in10 && !in5b) ? 1 + c.pBB[b] : 0.3 * c.pBB[b];
+    }
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=近缺席回补：近5期在场但近2期刚缺席（短期在场者歇脚回补假设）——集合模式统计与连续遗漏的长程口径不同' };
+  }
+  function f49(c) { /* 首距承接式 */
+    var rows = c.rows, OD = {};
+    for (var d = 0; d <= 32; d++) OD[d] = 0;
+    for (var i = 1; i < rows.length; i++) {
+      var m0 = rows[i].red[0], nxt = rows[i - 1];
+      for (var j = 0; j < nxt.red.length; j++) { var off = nxt.red[j] - m0; if (off >= 0 && off <= 32) OD[off]++; }
+    }
+    var cur = rows[0].red[0], sR = {};
+    for (var n = 1; n <= 33; n++) sR[n] = (n > cur ? OD[n - cur] : 0) + 0.02 * c.pB[n];
+    var sB = {};
+    for (var b = 1; b <= 16; b++) sB[b] = c.pBB[b];
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=首距承接：历史「上期最小号→下期各号」的距离差直方图，按上期最小号定位本期落点——位置关系尺度，与±1邻接转移不同' };
+  }
+  function f31(c) { /* 近邻期回溯式 */
+    var rows = c.rows, last = rows[0].red, sims = [];
+    for (var p = 1; p < rows.length; p++) {
+      var inter = 0;
+      for (var a = 0; a < 6; a++) if (rows[p].red.indexOf(last[a]) >= 0) inter++;
+      sims.push({ p: p, s: inter / 6 });
+    }
+    sims.sort(function (x, y) { return y.s - x.s || x.p - y.p; });
+    var top = sims.slice(0, 8), sR = {}, sB = {};
+    for (var n = 1; n <= 33; n++) sR[n] = 0;
+    for (var b = 1; b <= 16; b++) sB[b] = 0;
+    for (var i = 0; i < top.length; i++) {
+      var nxt = rows[top[i].p - 1];
+      for (var b2 = 0; b2 < nxt.red.length; b2++) sR[nxt.red[b2]] += 1 / top.length;
+      sB[nxt.blue] += 1 / top.length;
+    }
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=近邻期回溯：找历史上与上期最相似的8期（Jaccard），聚合它们的下一期实际开奖（实例学习/非参数条件，与参数化贝叶斯不同范式）' };
+  }
+  function f32(c) { /* 态势聚类式 */
+    var rows = c.rows, W = Math.min(120, rows.length);
+    function feats(rw) { var s = 0, od = 0; for (var j = 0; j < rw.red.length; j++) { s += rw.red[j]; if (rw.red[j] % 2) od++; } return { s: s, o: od >= 3 ? 1 : 0 }; }
+    var sums = [];
+    for (var i = 0; i < W; i++) sums.push(feats(rows[i]).s);
+    var srt = sums.slice().sort(asc);
+    var t1 = srt[Math.floor(W / 3)], t2 = srt[Math.floor(2 * W / 3)];
+    function cell(fx) { return (fx.s <= t1 ? 0 : (fx.s <= t2 ? 1 : 2)) * 2 + fx.o; }
+    var cur = cell(feats(rows[0])), aggR = {}, aggB = {}, cnt = 0;
+    for (var n = 1; n <= 33; n++) aggR[n] = 0;
+    for (var b = 1; b <= 16; b++) aggB[b] = 0;
+    for (i = 1; i < W; i++) {
+      if (cell(feats(rows[i])) === cur) {
+        cnt++;
+        var nxt = rows[i - 1];
+        for (var j = 0; j < 6; j++) aggR[nxt.red[j]]++;
+        aggB[nxt.blue]++;
+      }
+    }
+    var sR = {}, sB = {};
+    for (n = 1; n <= 33; n++) sR[n] = cnt >= 8 ? aggR[n] / cnt : c.pB[n];
+    for (b = 1; b <= 16; b++) sB[b] = cnt >= 8 ? aggB[b] / cnt : c.pBB[b];
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=态势聚类条件：按和值三分位×奇偶类分6个态势格，聚合与上期同格历史期的下一期开奖（条件样本 ' + cnt + ' 期，不足回退后验）' };
+  }
+
+  /* ---- 网络与图家族 ---- */
+  function f29(c) { /* 共现枢纽式 */
+    var rows = c.rows, CO = {}, i, a, b2;
+    for (i = 0; i < rows.length; i++) {
+      var d = rows[i].red;
+      for (a = 0; a < d.length; a++) for (b2 = a + 1; b2 < d.length; b2++) {
+        var x = d[a], y = d[b2];
+        CO[x] = CO[x] || {}; CO[x][y] = (CO[x][y] || 0) + 1;
+        CO[y] = CO[y] || {}; CO[y][x] = (CO[y][x] || 0) + 1;
+      }
+    }
+    var sR = {};
+    for (var n = 1; n <= 33; n++) { var dg = 0; for (var m in CO[n]) dg += CO[n][m]; sR[n] = dg; }
+    var arr = [];
+    for (n = 1; n <= 33; n++) arr.push({ n: n, p: c.pB[n] });
+    arr.sort(function (x, y) { return y.p - x.p || x.n - y.n; });
+    var hot = [];
+    for (i = 0; i < 6; i++) hot.push(arr[i].n);
+    var RBC = {};
+    for (i = 0; i < rows.length; i++) for (a = 0; a < 6; a++) { var r3 = rows[i].red[a]; RBC[r3] = RBC[r3] || {}; RBC[r3][rows[i].blue] = (RBC[r3][rows[i].blue] || 0) + 1; }
+    var sB = {};
+    for (var b = 1; b <= 16; b++) { var s = 0; for (a = 0; a < hot.length; a++) s += (RBC[hot[a]] && RBC[hot[a]][b]) || 0; sB[b] = s; }
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=共现枢纽度：同现网络的度中心性（与他号同现总频次最高=百搭枢纽）——与反共现式方向相反的一阶图统计' };
+  }
+  function f46(c) { /* 抱团度式 */
+    var rows = c.rows, CO = {}, i, a, b2;
+    for (i = 0; i < rows.length; i++) {
+      var d = rows[i].red;
+      for (a = 0; a < d.length; a++) for (b2 = a + 1; b2 < d.length; b2++) {
+        var x = d[a], y = d[b2];
+        CO[x] = CO[x] || {}; CO[x][y] = (CO[x][y] || 0) + 1;
+        CO[y] = CO[y] || {}; CO[y][x] = (CO[y][x] || 0) + 1;
+      }
+    }
+    var sR = {};
+    for (var n = 1; n <= 33; n++) {
+      var nb = [];
+      for (var m in CO[n]) nb.push({ m: Number(m), w: CO[n][m] });
+      nb.sort(function (x, y) { return y.w - x.w || x.m - y.m; });
+      var top = nb.slice(0, 8), e = 0;
+      for (a = 0; a < top.length; a++) for (b2 = a + 1; b2 < top.length; b2++) e += (CO[top[a].m] && CO[top[a].m][top[b2].m]) ? 1 : 0;
+      sR[n] = top.length > 1 ? e / (top.length * (top.length - 1) / 2) : 0;
+    }
+    var sB = {};
+    for (var b = 1; b <= 16; b++) sB[b] = c.pBB[b];
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=抱团度：共现网络的局部聚类系数（邻居间三角形密度）——图的三阶统计，与度中心性（一阶）、反共现（稀疏目标）不同阶' };
+  }
+  function f47(c) { /* 平稳分布式 */
+    var rows = c.rows, P = {}, i, x, n2, it;
+    for (x = 1; x <= 33; x++) { P[x] = {}; for (n2 = 1; n2 <= 33; n2++) P[x][n2] = 0.1; }
+    for (i = 0; i + 1 < rows.length; i++) {
+      var pre = rows[i + 1], nxt = rows[i];
+      for (var a = 0; a < pre.red.length; a++) for (var b2 = 0; b2 < nxt.red.length; b2++) P[pre.red[a]][nxt.red[b2]] += 1;
+    }
+    for (x = 1; x <= 33; x++) { var rs = 0; for (n2 = 1; n2 <= 33; n2++) rs += P[x][n2]; for (n2 = 1; n2 <= 33; n2++) P[x][n2] /= rs; }
+    var pi = {};
+    for (n2 = 1; n2 <= 33; n2++) pi[n2] = 1 / 33;
+    for (it = 0; it < 40; it++) {
+      var nx = {};
+      for (n2 = 1; n2 <= 33; n2++) nx[n2] = 0;
+      for (x = 1; x <= 33; x++) for (n2 = 1; n2 <= 33; n2++) nx[n2] += pi[x] * P[x][n2];
+      var s = 0; for (n2 = 1; n2 <= 33; n2++) s += nx[n2];
+      for (n2 = 1; n2 <= 33; n2++) pi[n2] = nx[n2] / s;
+    }
+    var sR = {};
+    for (n2 = 1; n2 <= 33; n2++) sR[n2] = pi[n2];
+    var PB = {}, piB = {}, b, b3;
+    for (b = 1; b <= 16; b++) { PB[b] = {}; piB[b] = 1 / 16; for (b3 = 1; b3 <= 16; b3++) PB[b][b3] = 0.1; }
+    for (i = 0; i + 1 < rows.length; i++) PB[rows[i + 1].blue][rows[i].blue] += 1;
+    for (b = 1; b <= 16; b++) { var rs2 = 0; for (b3 = 1; b3 <= 16; b3++) rs2 += PB[b][b3]; for (b3 = 1; b3 <= 16; b3++) PB[b][b3] /= rs2; }
+    for (it = 0; it < 40; it++) {
+      var nx2 = {};
+      for (b3 = 1; b3 <= 16; b3++) nx2[b3] = 0;
+      for (b = 1; b <= 16; b++) for (b3 = 1; b3 <= 16; b3++) nx2[b3] += piB[b] * PB[b][b3];
+      var s2 = 0; for (b3 = 1; b3 <= 16; b3++) s2 += nx2[b3];
+      for (b3 = 1; b3 <= 16; b3++) piB[b3] = nx2[b3] / s2;
+    }
+    var sB = {};
+    for (b3 = 1; b3 <= 16; b3++) sB[b3] = piB[b3];
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=平稳分布：平滑转移矩阵幂迭代收敛的长期驻留质量π——链论理论量，与经验频率（采样均值）不同' };
+  }
+  function f50(c) { /* 缺对回补式 */
+    var rows = c.rows, LS = {};
+    for (var i = 0; i < rows.length; i++) {
+      var d = rows[i].red;
+      for (var a = 0; a < d.length; a++) for (var b2 = a + 1; b2 < d.length; b2++) {
+        var x = d[a], y = d[b2];
+        LS[x] = LS[x] || {}; LS[y] = LS[y] || {};
+        if (LS[x][y] == null) { LS[x][y] = i; LS[y][x] = i; }
+      }
+    }
+    var T = rows.length, sR = {};
+    for (var n = 1; n <= 33; n++) {
+      var mx = T;
+      for (var m in LS[n]) if (LS[n][m] > mx) mx = LS[n][m];
+      sR[n] = mx + 0.001 * c.pB[n];
+    }
+    var sB = {};
+    for (var b = 1; b <= 16; b++) sB[b] = c.pBB[b];
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=缺对回补：全对偶528对的最近同现期索引，取最久未同现对的成员——对级回补粒度，与单号遗漏、网络稀疏都不同' };
+  }
+
+  /* ---- 趋势与谱家族 ---- */
+  function f33(c) { /* 长记忆式（Hurst） */
+    var rows = c.rows, T = rows.length, sR = {}, sB = {};
+    function hurst(y) {
+      var acc = [], sizes = [10, 25, 50], i, b2;
+      for (var si = 0; si < sizes.length; si++) {
+        var m = sizes[si], rs = [];
+        for (b2 = 0; b2 + m <= y.length; b2 += m) {
+          var mu = 0; for (i = 0; i < m; i++) mu += y[b2 + i]; mu /= m;
+          var cum = 0, mx = 0, mn = 0, va = 0;
+          for (i = 0; i < m; i++) { var d = y[b2 + i] - mu; cum += d; if (cum > mx) mx = cum; if (cum < mn) mn = cum; va += d * d; }
+          var sd2 = Math.sqrt(va / m);
+          if (sd2 > 1e-9) rs.push((mx - mn) / sd2);
+        }
+        if (rs.length) { var s = 0; for (i = 0; i < rs.length; i++) s += Math.log(rs[i] + 1e-9); acc.push(s / rs.length / Math.log(m)); }
+      }
+      return acc.length ? acc.reduce(function (a, b3) { return a + b3; }, 0) / acc.length : 0;
+    }
+    for (var n = 1; n <= 33; n++) { var y = []; for (var i = T - 1; i >= 0; i--) y.push(rows[i].red.indexOf(n) >= 0 ? 1 : 0); sR[n] = hurst(y); }
+    for (var b = 1; b <= 16; b++) { var yb = []; for (var i2 = T - 1; i2 >= 0; i2--) yb.push(rows[i2].blue === b ? 1 : 0); sB[b] = hurst(yb); }
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=长记忆（R/S分析）：出现序列的重标极差Hurst指数（H>0.5持续性/<0.5反持续）——长程相关，与短程自相关不同尺度' };
+  }
+  function f36(c) { /* 变点响应式 */
+    var rows = c.rows, T = rows.length, sR = {}, sB = {};
+    function postRate(y) {
+      var mu = 0, i; for (i = 0; i < y.length; i++) mu += y[i]; mu /= y.length;
+      var cs = 0, best = 0, bi = -1;
+      for (i = 0; i < y.length; i++) { cs += y[i] - mu; if (Math.abs(cs) > Math.abs(best)) { best = cs; bi = i; } }
+      if (bi < 0 || bi >= y.length - 2) return mu;
+      var s = 0, c2 = 0; for (i = bi + 1; i < y.length; i++) { s += y[i]; c2++; }
+      return c2 ? s / c2 : mu;
+    }
+    for (var n = 1; n <= 33; n++) { var y = []; for (var i = T - 1; i >= 0; i--) y.push(rows[i].red.indexOf(n) >= 0 ? 1 : 0); sR[n] = postRate(y); }
+    for (var b = 1; b <= 16; b++) { var yb = []; for (var i2 = T - 1; i2 >= 0; i2--) yb.push(rows[i2].blue === b ? 1 : 0); sB[b] = postRate(yb); }
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=变点响应：CUSUM最大偏移变点后的局部速率（最近状态优先）——变点统计，与全局频率、双窗比值不同' };
+  }
+  function f42(c) { /* 周期谱式 */
+    var rows = c.rows, T = rows.length, PS = [2, 3, 4, 6, 8, 12, 16, 24], sR = {}, sB = {};
+    function proj(y) {
+      var best = 2, bv = -1, bA = 0, bB2 = 0;
+      for (var pi = 0; pi < PS.length; pi++) {
+        var Pd = PS[pi], A = 0, B2 = 0;
+        for (var t = 0; t < T; t++) { var w = 2 * Math.PI * t / Pd; A += y[t] * Math.cos(w); B2 += y[t] * Math.sin(w); }
+        var pw = A * A + B2 * B2;
+        if (pw > bv) { bv = pw; best = Pd; bA = A; bB2 = B2; }
+      }
+      var w2 = 2 * Math.PI * T / best;
+      return (bA * Math.cos(w2) + bB2 * Math.sin(w2)) * (2 / T);
+    }
+    for (var n = 1; n <= 33; n++) { var y = []; for (var i = T - 1; i >= 0; i--) y.push(rows[i].red.indexOf(n) >= 0 ? 1 : 0); sR[n] = proj(y); }
+    for (var b = 1; b <= 16; b++) { var yb = []; for (var i2 = T - 1; i2 >= 0; i2--) yb.push(rows[i2].blue === b ? 1 : 0); sB[b] = proj(yb); }
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=周期谱投影：有限频点傅里叶分解取主导周期的下一相位投影——频域统计，与所有时域统计不同域' };
+  }
+  function f37(c) { /* 温带式 */
+    var f100 = redFreq(c.rows, 100), arr = [], i, n, b;
+    for (n = 1; n <= 33; n++) arr.push({ n: n, f: f100[n] });
+    arr.sort(function (x, y) { return y.f - x.f || x.n - y.n; });
+    var rank = {};
+    for (i = 0; i < 33; i++) rank[arr[i].n] = i + 1;
+    var sR = {};
+    for (n = 1; n <= 33; n++) sR[n] = -Math.abs(rank[n] - 17) + 0.001 * c.pB[n];
+    var barr = [];
+    for (b = 1; b <= 16; b++) barr.push({ n: b, f: c.b30[b] || 0 });
+    barr.sort(function (x, y) { return y.f - x.f || x.n - y.n; });
+    var brank = {};
+    for (i = 0; i < 16; i++) brank[barr[i].n] = i + 1;
+    var sB = {};
+    for (b = 1; b <= 16; b++) sB[b] = -Math.abs(brank[b] - 8.5) + 0.001 * c.pBB[b];
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=温带选择：频率排名中位带（12~22名）的温号优先——与热度式（最热）、遗漏式（最冷）不同的频段目标' };
+  }
+  function f51(c) { /* 排名动量式 */
+    var rows = c.rows, f100 = redFreq(rows, 100), f10 = redFreq(rows, 10);
+    function ranks(f) {
+      var arr = [];
+      for (var n = 1; n <= 33; n++) arr.push({ n: n, f: f[n] });
+      arr.sort(function (x, y) { return y.f - x.f || x.n - y.n; });
+      var rk = {};
+      for (var i = 0; i < arr.length; i++) rk[arr[i].n] = i + 1;
+      return rk;
+    }
+    var r100 = ranks(f100), r10 = ranks(f10), sR = {};
+    for (var n = 1; n <= 33; n++) sR[n] = r100[n] - r10[n];
+    var b100 = {}, b10 = {};
+    for (var i = 0; i < rows.length; i++) { var bl = rows[i].blue; if (i < 100) b100[bl] = (b100[bl] || 0) + 1; if (i < 10) b10[bl] = (b10[bl] || 0) + 1; }
+    var ba = [], bb = [];
+    for (var b = 1; b <= 16; b++) { ba.push({ n: b, f: b100[b] || 0 }); bb.push({ n: b, f: b10[b] || 0 }); }
+    ba.sort(function (x, y) { return y.f - x.f || x.n - y.n; });
+    bb.sort(function (x, y) { return y.f - x.f || x.n - y.n; });
+    var ra = {}, rb = {};
+    for (i = 0; i < 16; i++) { ra[ba[i].n] = i + 1; rb[bb[i].n] = i + 1; }
+    var sB = {};
+    for (b = 1; b <= 16; b++) sB[b] = ra[b] - rb[b];
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=排名动量：频率名次爬升量（百期名次−十期名次）——秩序统计量，与频机动量式的取值比值不同尺度' };
+  }
+  function f52(c) { /* 奇偶动量式 */
+    var rows = c.rows, o3 = 0, o6 = 0, i, j;
+    for (i = 0; i < 3 && i < rows.length; i++) for (j = 0; j < 6; j++) if (rows[i].red[j] % 2) o3++;
+    for (i = 3; i < 9 && i < rows.length; i++) for (j = 0; j < 6; j++) if (rows[i].red[j] % 2) o6++;
+    var m = o3 / 3 - o6 / 6, sR = {};
+    for (var n = 1; n <= 33; n++) sR[n] = c.pB[n] * Math.exp(0.3 * m * ((n % 2) ? 1 : -1));
+    var bo5 = 0, bo10 = 0;
+    for (i = 0; i < 5 && i < rows.length; i++) if (rows[i].blue % 2) bo5++;
+    for (i = 5; i < 15 && i < rows.length; i++) if (rows[i].blue % 2) bo10++;
+    var mb = bo5 / 5 - bo10 / 10, sB = {};
+    for (var b = 1; b <= 16; b++) sB[b] = c.pBB[b] * Math.exp(0.3 * mb * ((b % 2) ? 1 : -1));
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=奇偶动量：全池奇数枚数短期均值差（近3期vs前6期）的方向倾斜——动态版奇偶视角（静态众数在奇偶形态式）' };
+  }
+  function f54(c) { /* 在场频次式 */
+    var rows = c.rows, sR = {}, sB = {};
+    for (var n = 1; n <= 33; n++) { var c5 = 0; for (var i = 0; i < 5 && i < rows.length; i++) if (rows[i].red.indexOf(n) >= 0) c5++; sR[n] = c5; }
+    for (var b = 1; b <= 16; b++) { var c2 = 0; for (var i2 = 0; i2 < 5 && i2 < rows.length; i2++) if (rows[i2].blue === b) c2++; sB[b] = c2; }
+    return { red: combo6(c, sR), blue: argmaxOf(sB, 16), sR: sR, sB: sB, why: '主驱动=在场频次：近5期出现次数（离散短窗面板，无权重无比值）——与EWMA连续核、动量比值都不同的短窗统计' };
+  }
+
   var FORMULAS = [
     { id: 's1', name: '贝叶斯频率式', short: '贝叶斯', fn: f1 },
     { id: 's2', name: '和值密度式', short: '和值', fn: f2 },
@@ -1010,7 +1625,47 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-25T02:
     { id: 's12', name: '尾数谱式', short: '尾数', fn: f12 },
     { id: 's13', name: '跨度结构式', short: '跨度', fn: f13 },
     { id: 's14', name: '间隔节律式', short: '节律', fn: f14 },
-    { id: 's15', name: '频机动量式', short: '动量', fn: f15 }
+    { id: 's15', name: '频机动量式', short: '动量', fn: f15 },
+    { id: 's16', name: 'EWMA频率式', short: '加权', fn: f16 },
+    { id: 's17', name: '稳健频率式', short: '稳健', fn: f17 },
+    { id: 's18', name: '先验敏感式', short: '杰氏', fn: f18 },
+    { id: 's19', name: '纯遗漏式', short: '遗漏', fn: f19 },
+    { id: 's20', name: '可信下界式', short: '下界', fn: f20 },
+    { id: 's21', name: '空间核平滑式', short: '核平滑', fn: f21 },
+    { id: 's22', name: '012路式', short: '012路', fn: f22 },
+    { id: 's23', name: '行列几何式', short: '行列', fn: f23 },
+    { id: 's24', name: '二阶承接式', short: '二阶', fn: f24 },
+    { id: 's25', name: '自相关式', short: '自相关', fn: f25 },
+    { id: 's26', name: '间隔偏度式', short: '偏度', fn: f26 },
+    { id: 's27', name: '节奏斜率式', short: '斜率', fn: f27 },
+    { id: 's28', name: '长休眠回补式', short: '休眠', fn: f28 },
+    { id: 's29', name: '共现枢纽式', short: '枢纽', fn: f29 },
+    { id: 's30', name: '跨区亲和式', short: '亲和', fn: f30 },
+    { id: 's31', name: '近邻期回溯式', short: '近邻', fn: f31 },
+    { id: 's32', name: '态势聚类式', short: '聚类', fn: f32 },
+    { id: 's33', name: '长记忆式', short: '长记忆', fn: f33 },
+    { id: 's34', name: '和值奇偶条件式', short: '和奇偶', fn: f34 },
+    { id: 's35', name: '边界角色式', short: '边界', fn: f35 },
+    { id: 's36', name: '变点响应式', short: '变点', fn: f36 },
+    { id: 's37', name: '温带式', short: '温带', fn: f37 },
+    { id: 's38', name: '区间偏离式', short: '区偏离', fn: f38 },
+    { id: 's39', name: '同尾承接式', short: '同尾', fn: f39 },
+    { id: 's40', name: '分层收缩式', short: '分层', fn: f40 },
+    { id: 's41', name: '中位间隔式', short: '中位隔', fn: f41 },
+    { id: 's42', name: '周期谱式', short: '周期', fn: f42 },
+    { id: 's43', name: '星期条件式', short: '星期', fn: f43 },
+    { id: 's44', name: '后区引导式', short: '蓝引导', fn: f44 },
+    { id: 's45', name: '近缺席回补式', short: '近缺席', fn: f45 },
+    { id: 's46', name: '抱团度式', short: '抱团', fn: f46 },
+    { id: 's47', name: '平稳分布式', short: '平稳', fn: f47 },
+    { id: 's48', name: '镜像补位式', short: '镜像', fn: f48 },
+    { id: 's49', name: '首距承接式', short: '首距', fn: f49 },
+    { id: 's50', name: '缺对回补式', short: '缺对', fn: f50 },
+    { id: 's51', name: '排名动量式', short: '秩动量', fn: f51 },
+    { id: 's52', name: '奇偶动量式', short: '奇动量', fn: f52 },
+    { id: 's53', name: '断区式', short: '断区', fn: f53 },
+    { id: 's54', name: '在场频次式', short: '在场', fn: f54 },
+    { id: 's55', name: '间隔分位式', short: '分位', fn: f55 }
   ];
 
   function argmaxOf(m, pool) {
@@ -1102,7 +1757,7 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-25T02:
 
   globalThis.SSQ_ENGINE = {
     game: 'ssq',
-    version: '2026e1',
+    version: '2026f1',
     analyze: analyze,
     recommend: recommend,
     replay: replay,
@@ -1116,12 +1771,12 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-25T02:
 /*__ENGINE_SSQ_END__*/
 /*__ENGINE_DLT_START__*/
 /* ============================================================
- * 【大乐透独立公式引擎】15 式 · 每式一个独立科学方法（无冗余）
+ * 【大乐透独立公式引擎】55 式 · 每式一个独立主驱动统计量（无堆权重、无命理）
  * 前区 1-35 选 5，后区 1-12 选 2
  * 与双色球引擎零共享：不同号码池、不同估计窗口（20/60/120 vs 30/100）、
- * 不同统计口径（中位间隔 vs 平均间隔、回归通道 vs 静态μ带、
- * 同尾转移 vs 邻号转移、12/12/11 三区 vs 11/11/11）
- * 一票制：每式只举 1 个前区号 + 1 个后区号 → 15 票合成 5+2 席
+ * 不同统计口径（中位/平均间隔、回归通道 vs 静态μ带、
+ * 同尾转移 vs 邻号转移、12/12/11 三区 vs 11/11/11、7×5/4×3 网格 vs 6×6/4×4）
+ * 一票制：每式只举 1 个前区号 + 1 个后区号 → 55 票合成 5+2 席
  * 量化层：每式主驱动分数 → 统一概率口径（z 标准化 log-linear 倾斜，
  *         校准 Σp=5/2）→ Brier/对数得分可评分 + Borda 计分 + 多注输出
  * 全程无随机数，同一数据永远同一结果，可离线复算
@@ -1847,6 +2502,676 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-25T02:
     return { front: front, back: back, sR: sR, sB: sB, why: '主驱动=频机动量：前区近20期出现率与近60期出现率之比（拉普拉斯平滑），比值>1 即在升温——动量跟随视角（与后验优势式看水平、趋势得分式看残差互为不同统计量）；后区近40枚 vs 近120枚证据同构' };
   }
 
+  /* ================ 扩容 40 式（d16-d55）公共小助手 ================ */
+  function gapsChronD(rows, isIn, n) { /* 时间正序出现间隔序列 */
+    var pos = [];
+    for (var i = rows.length - 1; i >= 0; i--) if (isIn(rows[i], n)) pos.push(rows.length - 1 - i);
+    var g = [];
+    for (var k = 1; k < pos.length; k++) g.push(pos[k] - pos[k - 1]);
+    return g;
+  }
+  function skewOfD(a) { var m = a.length; if (m < 3) return 0; var mu = mean(a), s = sd(a); if (s < 1e-9) return 0; var m3 = 0; for (var i = 0; i < m; i++) { var d = a[i] - mu; m3 += d * d * d; } return (m3 / m) / (s * s * s); }
+  function combo5(c, sR, cons) { return pickCombo(candsOf(function (x) { return sR[x] * 1000; }), 5, cons || GUARD(c)); }
+  function backPair(c, sB) { return pickBackPair(c, function (a, b) { return (sB[a] + sB[b]) * 1000; }, null) || [1, 2]; }
+  function hasFrontD(rw, x) { return rw.front.indexOf(x) >= 0; }
+  function hasBackD(rw, x) { return rw.back.indexOf(x) >= 0; }
+  function backFreqD(rows, k) {
+    var m = {}; for (var b = 1; b <= 12; b++) m[b] = 0;
+    var c2 = Math.min(k, rows.length);
+    for (var i = 0; i < c2; i++) { var d = rows[i].back; for (var j = 0; j < d.length; j++) m[d[j]]++; }
+    return m;
+  }
+
+  /* ---- 频率与先验家族 ---- */
+  function d16(c) { /* EWMA频率式 */
+    var rows = c.rows, lam = 0.975, ew = {}, eb = {}, i, j, n, b;
+    var wsum = 0, bsum = 0, wt = 1;
+    for (n = 1; n <= 35; n++) ew[n] = 0;
+    for (b = 1; b <= 12; b++) eb[b] = 0;
+    for (i = 0; i < rows.length; i++) {
+      for (j = 0; j < rows[i].front.length; j++) ew[rows[i].front[j]] += wt;
+      for (j = 0; j < rows[i].back.length; j++) eb[rows[i].back[j]] += wt;
+      wsum += wt; bsum += wt; wt *= lam;
+    }
+    var sR = {}, sB = {};
+    for (n = 1; n <= 35; n++) sR[n] = ew[n] / wsum;
+    for (b = 1; b <= 12; b++) sB[b] = eb[b] / bsum;
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=指数加权频率：按距今指数衰减（单期0.975，半衰期约24期）加权出现率——连续时间核，与均匀窗、双窗比值都不同；后区两枚证据同法' };
+  }
+  function d17(c) { /* 稳健频率式（块中位） */
+    var rows = c.rows, B = 6, L = 20, sR = {}, sB = {};
+    for (var n = 1; n <= 35; n++) {
+      var cs = [];
+      for (var bi = 0; bi < B; bi++) { var cnt = 0; for (var i = bi * L; i < (bi + 1) * L && i < rows.length; i++) if (rows[i].front.indexOf(n) >= 0) cnt++; cs.push(cnt); }
+      cs.sort(asc); sR[n] = (cs[2] + cs[3]) / 2;
+    }
+    for (var b = 1; b <= 12; b++) {
+      var cb = [], L2 = 16;
+      for (bi = 0; bi < B; bi++) { var c2 = 0; for (var i2 = bi * L2; i2 < (bi + 1) * L2 && i2 < rows.length; i2++) if (rows[i2].back.indexOf(b) >= 0) c2++; cb.push(c2); }
+      cb.sort(asc); sB[b] = (cb[2] + cb[3]) / 2;
+    }
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=块中位频率：120期分6块取各号出现次数的中位数——对异常块稳健的集中趋势（鲁棒统计）；后区同法（6×16期）' };
+  }
+  function d18(c) { /* 先验敏感式（Jeffreys） */
+    var rows = c.rows, N = Math.min(120, rows.length), f120 = frontFreq(rows, N), fB = backFreqD(rows, N), sR = {}, sB = {};
+    for (var n = 1; n <= 35; n++) sR[n] = (f120[n] + 0.5) / (N + 1);
+    for (var b = 1; b <= 12; b++) sB[b] = (fB[b] + 0.5) / (N + 1);
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=杰氏先验后验：无信息 Beta(0.5,0.5) 先验下全历史后验均值 (f+0.5)/(N+1)——与后验优势式（经验先验收缩）不同先验结构（先验敏感性对照）' };
+  }
+  function d19(c) { /* 纯遗漏式 */
+    var sR = {}, sB = {};
+    for (var n = 1; n <= 35; n++) sR[n] = c.omF[n];
+    for (var b = 1; b <= 12; b++) sB[b] = c.bOm[b];
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=原始遗漏榜：当前连续遗漏期数直接排序（回补的原始口径；与相位/休眠/平均间隔/分位四种归一化互不相同）' };
+  }
+  function d20(c) { /* 可信下界式 */
+    var rows = c.rows, N = Math.min(120, rows.length), f120 = frontFreq(rows, N), fB = backFreqD(rows, N), sR = {}, sB = {};
+    for (var n = 1; n <= 35; n++) { var p = (f120[n] + 1) / (N + 2); sR[n] = p - 1.645 * Math.sqrt(p * (1 - p) / (N + 2)); }
+    for (var b = 1; b <= 12; b++) { var p2 = (fB[b] + 1) / (N + 2); sB[b] = p2 - 1.645 * Math.sqrt(p2 * (1 - p2) / (N + 2)); }
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=可信下界：Beta后验5%下分位（悲观热度）——决策论保守规则，与后验优势式（乐观准则）不同决策准则' };
+  }
+  function d21(c) { /* 空间核平滑式 */
+    var f60 = frontFreq(c.rows, 60), fB = backFreqD(c.rows, 60), sR = {}, sB = {};
+    function cl(x, lo, hi) { return x < lo ? lo : (x > hi ? hi : x); }
+    for (var n = 1; n <= 35; n++) { var s = 0; for (var k = -2; k <= 2; k++) s += f60[cl(n + k, 1, 35)]; sR[n] = s / 5; }
+    for (var b = 1; b <= 12; b++) sB[b] = (fB[cl(b - 1, 1, 12)] + fB[b] + fB[cl(b + 1, 1, 12)]) / 3;
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=空间核平滑：号轴±2邻域的60期频率均值（带宽2核密度）——空间平滑尺度，与逐号频率不同分辨率' };
+  }
+
+  /* ---- 结构形态家族（分割谱/几何） ---- */
+  function d22(c) { /* 012路式 */
+    var rows = c.rows, W = Math.min(100, rows.length), cnt = [0, 0, 0], size = [0, 0, 0];
+    for (var n = 1; n <= 35; n++) size[n % 3]++;
+    for (var i = 0; i < W; i++) for (var j = 0; j < 5; j++) cnt[rows[i].front[j] % 3]++;
+    var sR = {};
+    for (n = 1; n <= 35; n++) { var eT = W * size[n % 3] / 35; var z = eT > 0 ? (cnt[n % 3] - eT) / Math.sqrt(eT) : 0; sR[n] = c.pPost[n] * Math.exp(0.3 * (-z)); }
+    var cb = [0, 0, 0], sb = [0, 0, 0], W2 = Math.min(60, rows.length);
+    for (var b = 1; b <= 12; b++) sb[b % 3]++;
+    for (i = 0; i < W2; i++) for (j = 0; j < 2; j++) cb[rows[i].back[j] % 3]++;
+    var sB = {};
+    for (b = 1; b <= 12; b++) { var e2 = W2 * sb[b % 3] / 12; var z2 = e2 > 0 ? (cb[b % 3] - e2) / Math.sqrt(e2) : 0; sB[b] = c.pPostB[b] * Math.exp(0.25 * (-z2)); }
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=012路谱偏离：mod 3 余数分路的频谱标准化偏离（欠开路回补）——彩票常规012路维度，与尾数谱（mod 10）不同分割' };
+  }
+  function d23(c) { /* 行列几何式 */
+    var rows = c.rows, W = Math.min(100, rows.length);
+    var rc = [0, 0, 0, 0, 0], cc = [0, 0, 0, 0, 0, 0, 0], rs = [7, 7, 7, 7, 7], cs2 = [5, 5, 5, 5, 5, 5, 5];
+    for (var i = 0; i < W; i++) for (var j = 0; j < 5; j++) { var d = rows[i].front[j]; rc[Math.floor((d - 1) / 7)]++; cc[(d - 1) % 7]++; }
+    var sR = {};
+    for (var n = 1; n <= 35; n++) {
+      var ri = Math.floor((n - 1) / 7), ci = (n - 1) % 7;
+      var er = W * rs[ri] / 35, ec = W * cs2[ci] / 35;
+      var zr = er > 0 ? (rc[ri] - er) / Math.sqrt(er) : 0, zc = ec > 0 ? (cc[ci] - ec) / Math.sqrt(ec) : 0;
+      sR[n] = c.pPost[n] * Math.exp(0.2 * (-zr - zc));
+    }
+    var br = [0, 0, 0], bc = [0, 0, 0, 0], W2 = Math.min(60, rows.length);
+    for (i = 0; i < W2; i++) { var bd = rows[i].back; for (j = 0; j < 2; j++) { br[Math.floor((bd[j] - 1) / 4)]++; bc[(bd[j] - 1) % 4]++; } }
+    var sB = {};
+    for (var b = 1; b <= 12; b++) {
+      var er2 = 2 * W2 * 4 / 12, ec2 = 2 * W2 * 3 / 12;
+      var zr2 = (br[Math.floor((b - 1) / 4)] - er2) / Math.sqrt(er2), zc2 = (bc[(b - 1) % 4] - ec2) / Math.sqrt(ec2);
+      sB[b] = c.pPostB[b] * Math.exp(0.2 * (-zr2 - zc2));
+    }
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=票面行列谱：官方票面 7列×5行 网格行/列频谱偏离（大众按行列视觉选号的几何假设）；后区 4列×3行 网格同法' };
+  }
+  function d38(c) { /* 区间偏离式 */
+    var rows = c.rows, W = Math.min(100, rows.length);
+    var zc = [0, 0, 0], zs = [12, 12, 11];
+    for (var i = 0; i < W; i++) for (var j = 0; j < 5; j++) zc[zoneF(rows[i].front[j])]++;
+    var sR = {};
+    for (var n = 1; n <= 35; n++) { var eT = W * zs[zoneF(n)] / 35; var z = eT > 0 ? (zc[zoneF(n)] - eT) / Math.sqrt(eT) : 0; sR[n] = c.pPost[n] * Math.exp(0.3 * (-z)); }
+    var sB = {};
+    for (var b = 1; b <= 12; b++) sB[b] = c.pPostB[b];
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=区间偏离：三区(12/12/11)频谱对均匀期望的标准化偏离（欠开区回补）——统计口径，与覆盖设计式（结构配额）不同方法' };
+  }
+  function d53(c) { /* 断区式 */
+    var rows = c.rows, zhit = [0, 0, 0];
+    for (var i = 0; i < 4 && i < rows.length; i++) for (var j = 0; j < rows[i].front.length; j++) zhit[zoneF(rows[i].front[j])]++;
+    var sR = {};
+    for (var n = 1; n <= 35; n++) sR[n] = c.pPost[n] * Math.exp(zhit[zoneF(n)] === 0 ? 0.4 : 0);
+    var sB = {};
+    for (var b = 1; b <= 12; b++) sB[b] = c.pPostB[b];
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=断区回补：近4期整区未开的断区号码回补（短窗集合逻辑），与区间偏离式（百期z谱）不同时间尺度；后区取后验基线' };
+  }
+  function d48(c) { /* 镜像补位式 */
+    var f120 = frontFreq(c.rows, 120), fB = backFreqD(c.rows, 120), sR = {}, sB = {};
+    for (var n = 1; n <= 35; n++) sR[n] = f120[36 - n] + 0.001 * c.pPost[n];
+    for (var b = 1; b <= 12; b++) sB[b] = fB[13 - b] + 0.001 * c.pPostB[b];
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=镜像补位：号轴对称位（前区36−n/后区13−b）伴号频率（对称结构假说，可检验的结构维度）' };
+  }
+  function d35(c) { /* 边界角色式 */
+    var rows = c.rows, W = rows.length, mn = {}, mx = {}, sR = {}, sB = {};
+    for (var n = 1; n <= 35; n++) { mn[n] = 0; mx[n] = 0; }
+    for (var i = 0; i < W; i++) { var d = rows[i].front; mn[d[0]]++; mx[d[4]]++; }
+    for (n = 1; n <= 35; n++) sR[n] = (mn[n] + mx[n]) / W;
+    for (var b = 1; b <= 12; b++) sB[b] = c.pPostB[b];
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=边界角色：各号担任当期最小/最大号的频率（边界常客）——排序位置角色维度，与值频率不同口径；后区无位置概念取后验基线' };
+  }
+
+  /* ---- 遗漏与节奏家族 ---- */
+  function d26(c) { /* 间隔偏度式 */
+    var sR = {}, sB = {};
+    for (var n = 1; n <= 35; n++) sR[n] = -skewOfD(gapsChronD(c.rows, hasFrontD, n));
+    for (var b = 1; b <= 12; b++) sB[b] = -skewOfD(gapsChronD(c.rows, hasBackD, b));
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=间隔偏度：出现间隔序列的三阶矩偏度（负偏=短间隔为主的节奏形态）——间隔形状的三阶矩，与节律式的二阶矩（CV）不同' };
+  }
+  function d27(c) { /* 节奏斜率式 */
+    var sR = {}, sB = {};
+    for (var n = 1; n <= 35; n++) sR[n] = -slope(gapsChronD(c.rows, hasFrontD, n).slice(-6));
+    for (var b = 1; b <= 12; b++) sB[b] = -slope(gapsChronD(c.rows, hasBackD, b).slice(-6));
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=节奏斜率：最近6个间隔的线性回归斜率（负=间隔缩短=出场加快）——节奏趋势，与节律式（波动度）、相位式（水平）不同' };
+  }
+  function d28(c) { /* 长休眠回补式 */
+    var sR = {}, sB = {};
+    for (var n = 1; n <= 35; n++) { var g = gapsChronD(c.rows, hasFrontD, n), mx = 0; for (var i = 0; i < g.length; i++) if (g[i] > mx) mx = g[i]; sR[n] = c.omF[n] / Math.max(mx, 1); }
+    for (var b = 1; b <= 12; b++) { var g2 = gapsChronD(c.rows, hasBackD, b), mx2 = 0; for (var i2 = 0; i2 < g2.length; i2++) if (g2[i2] > mx2) mx2 = g2[i2]; sB[b] = c.bOm[b] / Math.max(mx2, 1); }
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=长休眠比：当前遗漏÷历史最大间隔（超出自身极值节奏的深度）——极值归一化，与均值/中位/分位基准互不相同' };
+  }
+  function d41(c) { /* 平均间隔式 */
+    var sR = {}, sB = {};
+    for (var n = 1; n <= 35; n++) { var g = gapsChronD(c.rows, hasFrontD, n); sR[n] = c.omF[n] / Math.max(g.length ? mean(g) : 7, 1); }
+    for (var b = 1; b <= 12; b++) { var g2 = gapsChronD(c.rows, hasBackD, b); sB[b] = c.bOm[b] / Math.max(g2.length ? mean(g2) : 5, 1); }
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=平均间隔相位：当前遗漏÷历史平均间隔（算术均值基准），与相位式的中位间隔基准不同集中趋势' };
+  }
+
+  /* ---- 转移与条件家族 ---- */
+  function d24(c) { /* 二阶承接式 */
+    var rows = c.rows, T2 = {}, T2B = {}, i, j, k;
+    for (i = 0; i + 2 < rows.length; i++) {
+      var nxt = rows[i], pre = rows[i + 2];
+      for (j = 0; j < pre.front.length; j++) {
+        var x = pre.front[j];
+        T2[x] = T2[x] || {};
+        for (k = 0; k < nxt.front.length; k++) T2[x][nxt.front[k]] = (T2[x][nxt.front[k]] || 0) + 1;
+      }
+      var bd = pre.back;
+      for (j = 0; j < bd.length; j++) {
+        var xb = bd[j];
+        T2B[xb] = T2B[xb] || {};
+        for (k = 0; k < nxt.back.length; k++) T2B[xb][nxt.back[k]] = (T2B[xb][nxt.back[k]] || 0) + 1;
+      }
+    }
+    var anchor = rows[1] ? rows[1] : rows[0], sR = {};
+    for (var n = 1; n <= 35; n++) { var s = 0; for (j = 0; j < anchor.front.length; j++) s += (T2[anchor.front[j]] && T2[anchor.front[j]][n]) || 0; sR[n] = s; }
+    var sB = {};
+    for (var b = 1; b <= 12; b++) { var s2 = 0; for (j = 0; j < anchor.back.length; j++) s2 += (T2B[anchor.back[j]] && T2B[anchor.back[j]][b]) || 0; sB[b] = s2; }
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=二阶承接：隔一期转移矩阵（x在t−2→n在t）以 t−1 期为锚——与一阶承接式不同阶数' };
+  }
+  function d25(c) { /* 自相关式 */
+    var rows = c.rows, T = rows.length, sR = {}, sB = {};
+    for (var n = 1; n <= 35; n++) {
+      var y = [], mu = 0, i;
+      for (i = T - 1; i >= 0; i--) { var v = rows[i].front.indexOf(n) >= 0 ? 1 : 0; y.push(v); mu += v; }
+      mu /= T;
+      var num = 0, den = 0;
+      for (i = 0; i + 1 < T; i++) num += (y[i] - mu) * (y[i + 1] - mu);
+      for (i = 0; i < T; i++) { var dv = y[i] - mu; den += dv * dv; }
+      sR[n] = den > 0 ? num / den : 0;
+    }
+    for (var b = 1; b <= 12; b++) {
+      var yb = [], mu2 = 0;
+      for (i = T - 1; i >= 0; i--) { var v2 = rows[i].back.indexOf(b) >= 0 ? 1 : 0; yb.push(v2); mu2 += v2; }
+      mu2 /= T;
+      var num2 = 0, den2 = 0;
+      for (i = 0; i + 1 < T; i++) num2 += (yb[i] - mu2) * (yb[i + 1] - mu2);
+      for (i = 0; i < T; i++) { var dv2 = yb[i] - mu2; den2 += dv2 * dv2; }
+      sB[b] = den2 > 0 ? num2 / den2 : 0;
+    }
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=滞后1自相关：各号出现序列的自身前后期相关——逐号时间序列维度，与承接式的跨号转移不同' };
+  }
+  function d39(c) { /* 跨区转移式 */
+    var rows = c.rows, TZ = {}, i, x, y;
+    for (i = 0; i + 1 < rows.length; i++) {
+      var pre = rows[i + 1], nxt = rows[i];
+      for (x = 0; x < pre.front.length; x++) for (y = 0; y < nxt.front.length; y++) {
+        var z1 = zoneF(pre.front[x]), z2 = zoneF(nxt.front[y]);
+        TZ[z1] = TZ[z1] || {};
+        TZ[z1][z2] = (TZ[z1][z2] || 0) + 1;
+      }
+    }
+    var rowsum = [0, 0, 0];
+    for (x = 0; x < 3; x++) for (y = 0; y < 3; y++) rowsum[x] += (TZ[x] && TZ[x][y]) || 0;
+    var sR = {};
+    for (var n = 1; n <= 35; n++) {
+      var s = 0;
+      for (var kk in c.lastFront) {
+        var zx = zoneF(Number(kk)), w = rowsum[zx] || 1;
+        s += ((TZ[zx] && TZ[zx][zoneF(n)]) || 0) / w;
+      }
+      sR[n] = s;
+    }
+    var sB = {};
+    for (var b = 1; b <= 12; b++) sB[b] = c.pPostB[b];
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=跨区转移：区→区转移矩阵（上期各区号码流向下期各区的历史倾向），按上期5前区所属区加权聚合——区间关系的时间维度（与覆盖/偏离式的静态区间统计不同）；后区无区间概念取后验基线' };
+  }
+  function d30(c) { /* 跨区亲和式 */
+    var rows = c.rows, FBC = {}, cntB = {};
+    for (var i = 0; i < rows.length; i++) {
+      var d = rows[i].front, bd = rows[i].back;
+      for (var j = 0; j < bd.length; j++) cntB[bd[j]] = (cntB[bd[j]] || 0) + 1;
+      for (var x = 0; x < d.length; x++) {
+        FBC[d[x]] = FBC[d[x]] || {};
+        for (var y = 0; y < bd.length; y++) FBC[d[x]][bd[y]] = (FBC[d[x]][bd[y]] || 0) + 1;
+      }
+    }
+    var lb = c.lastBack, sR = {};
+    for (var n = 1; n <= 35; n++) {
+      var s = 0;
+      for (var j2 = 0; j2 < lb.length; j2++) s += cntB[lb[j2]] ? ((FBC[n] && FBC[n][lb[j2]]) || 0) / cntB[lb[j2]] : 0;
+      sR[n] = s / 2;
+    }
+    var sB = {};
+    for (var b = 1; b <= 12; b++) {
+      var s2 = 0, cnt = 0;
+      for (var kk in c.lastFront) { s2 += cntB[b] ? ((FBC[Number(kk)] && FBC[Number(kk)][b]) || 0) / cntB[b] : 0; cnt++; }
+      sB[b] = cnt ? s2 / cnt : 0;
+    }
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=跨区亲和：前区与上期后区两号的历史同现率、后区与上期前区的同现率（前-后二部图关联）——同期跨区维度，与跨区条件式的滞后条件不同向' };
+  }
+  function d34(c) { /* 和值奇偶条件式 */
+    var rows = c.rows, W = Math.min(120, rows.length);
+    function par(rw) { var s = 0; for (var j = 0; j < rw.front.length; j++) s += rw.front[j]; return s % 2; }
+    var cur = par(rows[0]), aggR = {}, aggB = {}, cnt = 0;
+    for (var n = 1; n <= 35; n++) aggR[n] = 0;
+    for (var b = 1; b <= 12; b++) aggB[b] = 0;
+    for (var i = 1; i < W; i++) if (par(rows[i]) === cur) { cnt++; var nxt = rows[i - 1]; for (var j = 0; j < nxt.front.length; j++) aggR[nxt.front[j]]++; for (var j2 = 0; j2 < nxt.back.length; j2++) aggB[nxt.back[j2]]++; }
+    var sR = {}, sB = {};
+    for (n = 1; n <= 35; n++) sR[n] = cnt >= 8 ? aggR[n] / cnt : c.pPost[n];
+    for (b = 1; b <= 12; b++) sB[b] = cnt >= 8 ? aggB[b] / cnt : c.pPostB[b];
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=和值奇偶条件：以上期前区和值奇偶为条件聚合历史下一期（条件样本 ' + cnt + ' 期，不足回退后验）' };
+  }
+  function d43(c) { /* 星期条件式 */
+    var rows = c.rows;
+    function wd(ds) { return new Date(ds + 'T00:00:00Z').getUTCDay(); }
+    var rot = { 1: 3, 3: 6, 6: 1 };
+    var lw = wd(rows[0].date), target = rot[lw] != null ? rot[lw] : lw;
+    var aggR = {}, aggB = {}, cnt = 0;
+    for (var n = 1; n <= 35; n++) aggR[n] = 0;
+    for (var b = 1; b <= 12; b++) aggB[b] = 0;
+    for (var i = 0; i < rows.length; i++) {
+      if (wd(rows[i].date) === target) {
+        cnt++;
+        for (var j = 0; j < rows[i].front.length; j++) aggR[rows[i].front[j]]++;
+        for (var j2 = 0; j2 < rows[i].back.length; j2++) aggB[rows[i].back[j2]]++;
+      }
+    }
+    var sR = {}, sB = {};
+    for (n = 1; n <= 35; n++) sR[n] = cnt >= 8 ? aggR[n] / cnt : c.pPost[n];
+    for (b = 1; b <= 12; b++) sB[b] = cnt >= 8 ? aggB[b] / cnt : c.pPostB[b];
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=星期条件：下期开奖星期已知（周一三六轮转），聚合历史上同星期开奖的号码频率（日历条件样本 ' + cnt + ' 期，不足回退后验）' };
+  }
+  function d44(c) { /* 后区和值条件式 */
+    var rows = c.rows, W = Math.min(120, rows.length);
+    function bsum(rw) { return rw.back[0] + rw.back[1]; }
+    var sumsB = [];
+    for (var i = 0; i < W; i++) sumsB.push(bsum(rows[i]));
+    var srt = sumsB.slice().sort(asc);
+    var t1 = srt[Math.floor(W / 3)], t2 = srt[Math.floor(2 * W / 3)];
+    function band(v) { return v <= t1 ? 0 : (v <= t2 ? 1 : 2); }
+    var tgt = band(c.lastBackSum);
+    var aggR = {}, aggB = {}, cnt = 0;
+    for (var n = 1; n <= 35; n++) aggR[n] = 0;
+    for (var b = 1; b <= 12; b++) aggB[b] = 0;
+    for (i = 1; i < W; i++) {
+      if (band(bsum(rows[i])) === tgt) {
+        cnt++;
+        var nxt = rows[i - 1];
+        for (var j = 0; j < nxt.front.length; j++) aggR[nxt.front[j]]++;
+        for (var j2 = 0; j2 < nxt.back.length; j2++) aggB[nxt.back[j2]]++;
+      }
+    }
+    var sR = {}, sB = {};
+    for (n = 1; n <= 35; n++) sR[n] = cnt >= 8 ? aggR[n] / cnt : c.pPost[n];
+    for (b = 1; b <= 12; b++) sB[b] = cnt >= 8 ? aggB[b] / cnt : c.pPostB[b];
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=后区和值条件：以上期后区和值在近120期三分位中的段位为条件，聚合历史同段位期的下一期前区/后区逐号频率（条件样本 ' + cnt + ' 期，不足回退后验）——与跨区条件式不同：彼式只取奇偶枚数众数，此处取逐号条件频率' };
+  }
+  function d45(c) { /* 近缺席回补式 */
+    var rows = c.rows, sR = {}, sB = {};
+    for (var n = 1; n <= 35; n++) {
+      var in5 = false, in2 = false;
+      for (var i = 0; i < 5 && i < rows.length; i++) if (rows[i].front.indexOf(n) >= 0) { in5 = true; if (i < 2) in2 = true; }
+      sR[n] = (in5 && !in2) ? 1 + c.pPost[n] : 0.3 * c.pPost[n];
+    }
+    for (var b = 1; b <= 12; b++) {
+      var in10 = false, in5b = false;
+      for (var i2 = 0; i2 < 10 && i2 < rows.length; i2++) if (rows[i2].back.indexOf(b) >= 0) { in10 = true; if (i2 < 5) in5b = true; }
+      sB[b] = (in10 && !in5b) ? 1 + c.pPostB[b] : 0.3 * c.pPostB[b];
+    }
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=近缺席回补：近5期在场但近2期刚缺席（短期在场者歇脚回补假设）——集合模式统计与连续遗漏的长程口径不同' };
+  }
+  function d49(c) { /* 首距承接式 */
+    var rows = c.rows, OD = {};
+    for (var d = 0; d <= 34; d++) OD[d] = 0;
+    for (var i = 1; i < rows.length; i++) {
+      var m0 = rows[i].front[0], nxt = rows[i - 1];
+      for (var j = 0; j < nxt.front.length; j++) { var off = nxt.front[j] - m0; if (off >= 0 && off <= 34) OD[off]++; }
+    }
+    var cur = rows[0].front[0], sR = {};
+    for (var n = 1; n <= 35; n++) sR[n] = (n > cur ? OD[n - cur] : 0) + 0.001 * c.pPost[n];
+    var sB = {};
+    for (var b = 1; b <= 12; b++) sB[b] = c.pPostB[b];
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=首距承接：历史「上期最小号→下期各号」的距离差直方图，按上期最小号定位本期落点——位置关系尺度，与邻号转移（±1）不同；后区取后验基线' };
+  }
+  function d31(c) { /* 近邻期回溯式 */
+    var rows = c.rows, last = rows[0].front, sims = [];
+    for (var p = 1; p < rows.length; p++) {
+      var inter = 0;
+      for (var a = 0; a < 5; a++) if (rows[p].front.indexOf(last[a]) >= 0) inter++;
+      sims.push({ p: p, s: inter / 5 });
+    }
+    sims.sort(function (x, y) { return y.s - x.s || x.p - y.p; });
+    var top = sims.slice(0, 8), sR = {}, sB = {};
+    for (var n = 1; n <= 35; n++) sR[n] = 0;
+    for (var b = 1; b <= 12; b++) sB[b] = 0;
+    for (var i = 0; i < top.length; i++) {
+      var nxt = rows[top[i].p - 1];
+      for (var j = 0; j < nxt.front.length; j++) sR[nxt.front[j]] += 1 / top.length;
+      for (var j2 = 0; j2 < nxt.back.length; j2++) sB[nxt.back[j2]] += 1 / top.length;
+    }
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=近邻期回溯：找历史上与上期最相似的8期（雅卡尔），聚合它们的下一期实际开奖（实例学习/非参数条件，与参数化贝叶斯不同范式）' };
+  }
+  function d32(c) { /* 态势聚类式 */
+    var rows = c.rows, W = Math.min(120, rows.length);
+    function feats(rw) { var s = 0, od = 0; for (var j = 0; j < rw.front.length; j++) { s += rw.front[j]; if (rw.front[j] % 2) od++; } return { s: s, o: od >= 3 ? 1 : 0 }; }
+    var sums = [];
+    for (var i = 0; i < W; i++) sums.push(feats(rows[i]).s);
+    var srt = sums.slice().sort(asc);
+    var t1 = srt[Math.floor(W / 3)], t2 = srt[Math.floor(2 * W / 3)];
+    function cell(fx) { return (fx.s <= t1 ? 0 : (fx.s <= t2 ? 1 : 2)) * 2 + fx.o; }
+    var cur = cell(feats(rows[0])), aggR = {}, aggB = {}, cnt = 0;
+    for (var n = 1; n <= 35; n++) aggR[n] = 0;
+    for (var b = 1; b <= 12; b++) aggB[b] = 0;
+    for (i = 1; i < W; i++) {
+      if (cell(feats(rows[i])) === cur) {
+        cnt++;
+        var nxt = rows[i - 1];
+        for (var j = 0; j < nxt.front.length; j++) aggR[nxt.front[j]]++;
+        for (var j2 = 0; j2 < nxt.back.length; j2++) aggB[nxt.back[j2]]++;
+      }
+    }
+    var sR = {}, sB = {};
+    for (n = 1; n <= 35; n++) sR[n] = cnt >= 8 ? aggR[n] / cnt : c.pPost[n];
+    for (b = 1; b <= 12; b++) sB[b] = cnt >= 8 ? aggB[b] / cnt : c.pPostB[b];
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=态势聚类条件：按和值三分位×奇偶类分6个态势格，聚合与上期同格历史期的下一期开奖（条件样本 ' + cnt + ' 期，不足回退后验）' };
+  }
+
+  /* ---- 网络与图家族 ---- */
+  function d29(c) { /* 共现枢纽式 */
+    var wf = cooccurDLT(c.rows, 35, function (d, num) { return d.front.indexOf(num) >= 0; });
+    var sR = {};
+    for (var n = 1; n <= 35; n++) { var dg = 0; for (var m = 1; m <= 35; m++) if (m !== n) dg += wf[n][m]; sR[n] = dg; }
+    var wb = cooccurDLT(c.rows, 12, function (d, num) { return d.back.indexOf(num) >= 0; });
+    var sB = {};
+    for (var b = 1; b <= 12; b++) { var dg2 = 0; for (var m2 = 1; m2 <= 12; m2++) if (m2 !== b) dg2 += wb[b][m2]; sB[b] = dg2; }
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=共现枢纽度：同现网络的度中心性（与他号同现总频次最高=百搭枢纽）——与雅卡尔反共现式方向相反的一阶图统计；后区同现图同法' };
+  }
+  function d46(c) { /* 抱团度式 */
+    var wf = cooccurDLT(c.rows, 35, function (d, num) { return d.front.indexOf(num) >= 0; });
+    var sR = {};
+    for (var n = 1; n <= 35; n++) {
+      var nb = [];
+      for (var m = 1; m <= 35; m++) if (m !== n && wf[n][m] > 0) nb.push({ m: m, w: wf[n][m] });
+      nb.sort(function (x, y) { return y.w - x.w || x.m - y.m; });
+      var top = nb.slice(0, 8), e = 0;
+      for (var a = 0; a < top.length; a++) for (var b2 = a + 1; b2 < top.length; b2++) e += wf[top[a].m][top[b2].m] > 0 ? 1 : 0;
+      sR[n] = top.length > 1 ? e / (top.length * (top.length - 1) / 2) : 0;
+    }
+    var sB = {};
+    for (var b = 1; b <= 12; b++) sB[b] = c.pPostB[b];
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=抱团度：共现网络的局部聚类系数（邻居间三角形密度）——图的三阶统计，与度中心性（一阶）、雅卡尔反共现（稀疏目标）不同阶；后区取后验基线' };
+  }
+  function d47(c) { /* 平稳分布式 */
+    var P = {}, i, x, n2, it;
+    for (x = 1; x <= 35; x++) { P[x] = {}; for (n2 = 1; n2 <= 35; n2++) P[x][n2] = 0.1; }
+    for (x = 1; x <= 35; x++) for (n2 = 1; n2 <= 35; n2++) P[x][n2] += (c.TF[x] && c.TF[x][n2]) || 0;
+    for (x = 1; x <= 35; x++) { var rs = 0; for (n2 = 1; n2 <= 35; n2++) rs += P[x][n2]; for (n2 = 1; n2 <= 35; n2++) P[x][n2] /= rs; }
+    var pi = {};
+    for (n2 = 1; n2 <= 35; n2++) pi[n2] = 1 / 35;
+    for (it = 0; it < 40; it++) {
+      var nx = {};
+      for (n2 = 1; n2 <= 35; n2++) nx[n2] = 0;
+      for (x = 1; x <= 35; x++) for (n2 = 1; n2 <= 35; n2++) nx[n2] += pi[x] * P[x][n2];
+      var s = 0; for (n2 = 1; n2 <= 35; n2++) s += nx[n2];
+      for (n2 = 1; n2 <= 35; n2++) pi[n2] = nx[n2] / s;
+    }
+    var sR = {};
+    for (n2 = 1; n2 <= 35; n2++) sR[n2] = pi[n2];
+    var PB = {}, piB = {}, b, b3;
+    for (b = 1; b <= 12; b++) { PB[b] = {}; piB[b] = 1 / 12; for (b3 = 1; b3 <= 12; b3++) PB[b][b3] = 0.1; }
+    for (b = 1; b <= 12; b++) for (b3 = 1; b3 <= 12; b3++) PB[b][b3] += (c.TB[b] && c.TB[b][b3]) || 0;
+    for (b = 1; b <= 12; b++) { var rs2 = 0; for (b3 = 1; b3 <= 12; b3++) rs2 += PB[b][b3]; for (b3 = 1; b3 <= 12; b3++) PB[b][b3] /= rs2; }
+    for (it = 0; it < 40; it++) {
+      var nx2 = {};
+      for (b3 = 1; b3 <= 12; b3++) nx2[b3] = 0;
+      for (b = 1; b <= 12; b++) for (b3 = 1; b3 <= 12; b3++) nx2[b3] += piB[b] * PB[b][b3];
+      var s2 = 0; for (b3 = 1; b3 <= 12; b3++) s2 += nx2[b3];
+      for (b3 = 1; b3 <= 12; b3++) piB[b3] = nx2[b3] / s2;
+    }
+    var sB = {};
+    for (b3 = 1; b3 <= 12; b3++) sB[b3] = piB[b3];
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=平稳分布：平滑转移矩阵幂迭代收敛的长期驻留质量π——链论理论量，与经验频率（采样均值）不同' };
+  }
+  function d50(c) { /* 缺对回补式 */
+    var rows = c.rows, LS = {};
+    for (var i = 0; i < rows.length; i++) {
+      var d = rows[i].front;
+      for (var a = 0; a < d.length; a++) for (var b2 = a + 1; b2 < d.length; b2++) {
+        var x = d[a], y = d[b2];
+        LS[x] = LS[x] || {}; LS[y] = LS[y] || {};
+        if (LS[x][y] == null) { LS[x][y] = i; LS[y][x] = i; }
+      }
+    }
+    var T = rows.length, sR = {};
+    for (var n = 1; n <= 35; n++) {
+      var mx = T;
+      for (var m in LS[n]) if (LS[n][m] > mx) mx = LS[n][m];
+      sR[n] = mx + 0.001 * c.pPost[n];
+    }
+    var sB = {};
+    for (var b = 1; b <= 12; b++) sB[b] = c.pPostB[b];
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=缺对回补：全对偶595对的最近同现期索引，取最久未同现对的成员——对级回补粒度，与单号遗漏、雅卡尔网络都不同；后区取后验基线' };
+  }
+
+  /* ---- 趋势与谱家族 ---- */
+  function d33(c) { /* 长记忆式（Hurst） */
+    var rows = c.rows, T = rows.length, sR = {}, sB = {};
+    function hurst(y) {
+      var acc = [], sizes = [10, 25, 50], i, b2;
+      for (var si = 0; si < sizes.length; si++) {
+        var m = sizes[si], rs = [];
+        for (b2 = 0; b2 + m <= y.length; b2 += m) {
+          var mu = 0; for (i = 0; i < m; i++) mu += y[b2 + i]; mu /= m;
+          var cum = 0, mx = 0, mn = 0, va = 0;
+          for (i = 0; i < m; i++) { var d = y[b2 + i] - mu; cum += d; if (cum > mx) mx = cum; if (cum < mn) mn = cum; va += d * d; }
+          var sd2 = Math.sqrt(va / m);
+          if (sd2 > 1e-9) rs.push((mx - mn) / sd2);
+        }
+        if (rs.length) { var s = 0; for (i = 0; i < rs.length; i++) s += Math.log(rs[i] + 1e-9); acc.push(s / rs.length / Math.log(m)); }
+      }
+      return acc.length ? acc.reduce(function (a, b3) { return a + b3; }, 0) / acc.length : 0;
+    }
+    for (var n = 1; n <= 35; n++) { var y = []; for (var i = T - 1; i >= 0; i--) y.push(rows[i].front.indexOf(n) >= 0 ? 1 : 0); sR[n] = hurst(y); }
+    for (var b = 1; b <= 12; b++) { var yb = []; for (var i2 = T - 1; i2 >= 0; i2--) yb.push(rows[i2].back.indexOf(b) >= 0 ? 1 : 0); sB[b] = hurst(yb); }
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=长记忆（R/S分析）：出现序列的重标极差Hurst指数（H>0.5持续性/<0.5反持续）——长程相关，与短程自相关不同尺度' };
+  }
+  function d36(c) { /* 变点响应式 */
+    var rows = c.rows, T = rows.length, sR = {}, sB = {};
+    function postRate(y) {
+      var mu = 0, i; for (i = 0; i < y.length; i++) mu += y[i]; mu /= y.length;
+      var cs = 0, best = 0, bi = -1;
+      for (i = 0; i < y.length; i++) { cs += y[i] - mu; if (Math.abs(cs) > Math.abs(best)) { best = cs; bi = i; } }
+      if (bi < 0 || bi >= y.length - 2) return mu;
+      var s = 0, c2 = 0; for (i = bi + 1; i < y.length; i++) { s += y[i]; c2++; }
+      return c2 ? s / c2 : mu;
+    }
+    for (var n = 1; n <= 35; n++) { var y = []; for (var i = T - 1; i >= 0; i--) y.push(rows[i].front.indexOf(n) >= 0 ? 1 : 0); sR[n] = postRate(y); }
+    for (var b = 1; b <= 12; b++) { var yb = []; for (var i2 = T - 1; i2 >= 0; i2--) yb.push(rows[i2].back.indexOf(b) >= 0 ? 1 : 0); sB[b] = postRate(yb); }
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=变点响应：CUSUM最大偏移变点后的局部速率（最近状态优先）——变点统计，与全局频率、双窗比值不同' };
+  }
+  function d42(c) { /* 周期谱式 */
+    var rows = c.rows, T = rows.length, PS = [2, 3, 4, 6, 8, 12, 16, 24], sR = {}, sB = {};
+    function proj(y) {
+      var best = 2, bv = -1, bA = 0, bB2 = 0;
+      for (var pi = 0; pi < PS.length; pi++) {
+        var Pd = PS[pi], A = 0, B2 = 0;
+        for (var t = 0; t < T; t++) { var w = 2 * Math.PI * t / Pd; A += y[t] * Math.cos(w); B2 += y[t] * Math.sin(w); }
+        var pw = A * A + B2 * B2;
+        if (pw > bv) { bv = pw; best = Pd; bA = A; bB2 = B2; }
+      }
+      var w2 = 2 * Math.PI * T / best;
+      return (bA * Math.cos(w2) + bB2 * Math.sin(w2)) * (2 / T);
+    }
+    for (var n = 1; n <= 35; n++) { var y = []; for (var i = T - 1; i >= 0; i--) y.push(rows[i].front.indexOf(n) >= 0 ? 1 : 0); sR[n] = proj(y); }
+    for (var b = 1; b <= 12; b++) { var yb = []; for (var i2 = T - 1; i2 >= 0; i2--) yb.push(rows[i2].back.indexOf(b) >= 0 ? 1 : 0); sB[b] = proj(yb); }
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=周期谱投影：有限频点傅里叶分解取主导周期的下一相位投影——频域统计，与所有时域统计不同域' };
+  }
+  function d37(c) { /* 温带式 */
+    var f120 = frontFreq(c.rows, 120), arr = [], i, n, b;
+    for (n = 1; n <= 35; n++) arr.push({ n: n, f: f120[n] });
+    arr.sort(function (x, y) { return y.f - x.f || x.n - y.n; });
+    var rank = {};
+    for (i = 0; i < 35; i++) rank[arr[i].n] = i + 1;
+    var sR = {};
+    for (n = 1; n <= 35; n++) sR[n] = -Math.abs(rank[n] - 17) + 0.001 * c.pPost[n];
+    var fB = backFreqD(c.rows, 60), barr = [];
+    for (b = 1; b <= 12; b++) barr.push({ n: b, f: fB[b] });
+    barr.sort(function (x, y) { return y.f - x.f || x.n - y.n; });
+    var brank = {};
+    for (i = 0; i < 12; i++) brank[barr[i].n] = i + 1;
+    var sB = {};
+    for (b = 1; b <= 12; b++) sB[b] = -Math.abs(brank[b] - 6.5) + 0.001 * c.pPostB[b];
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=温带选择：频率排名中位带（前区12~22名/后区4~8名）的温号优先——与热度式（最热）、遗漏式（最冷）不同的频段目标' };
+  }
+  function d51(c) { /* 排名动量式 */
+    var rows = c.rows, f120 = frontFreq(rows, 120), f20 = frontFreq(rows, 20);
+    function ranks(f, pool) {
+      var arr = [];
+      for (var n = 1; n <= pool; n++) arr.push({ n: n, f: f[n] });
+      arr.sort(function (x, y) { return y.f - x.f || x.n - y.n; });
+      var rk = {};
+      for (var i = 0; i < arr.length; i++) rk[arr[i].n] = i + 1;
+      return rk;
+    }
+    var r120 = ranks(f120, 35), r20 = ranks(f20, 35), sR = {};
+    for (var n = 1; n <= 35; n++) sR[n] = r120[n] - r20[n];
+    var b120 = backFreqD(rows, 120), b20 = backFreqD(rows, 20);
+    var rb120 = ranks(b120, 12), rb20 = ranks(b20, 12), sB = {};
+    for (var b = 1; b <= 12; b++) sB[b] = rb120[b] - rb20[b];
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=排名动量：频率名次爬升量（120期名次−20期名次）——秩序统计量，与频机动量式的取值比值不同尺度' };
+  }
+  function d52(c) { /* 奇偶动量式 */
+    var rows = c.rows, o3 = 0, o6 = 0, i, j;
+    for (i = 0; i < 3 && i < rows.length; i++) for (j = 0; j < rows[i].front.length; j++) if (rows[i].front[j] % 2) o3++;
+    for (i = 3; i < 9 && i < rows.length; i++) for (j = 0; j < rows[i].front.length; j++) if (rows[i].front[j] % 2) o6++;
+    var m = o3 / 3 - o6 / 6, sR = {};
+    for (var n = 1; n <= 35; n++) sR[n] = c.pPost[n] * Math.exp(0.3 * m * ((n % 2) ? 1 : -1));
+    var bo5 = 0, bo10 = 0;
+    for (i = 0; i < 5 && i < rows.length; i++) for (j = 0; j < 2; j++) if (rows[i].back[j] % 2) bo5++;
+    for (i = 5; i < 15 && i < rows.length; i++) for (j = 0; j < 2; j++) if (rows[i].back[j] % 2) bo10++;
+    var mb = bo5 / 5 - bo10 / 10, sB = {};
+    for (var b = 1; b <= 12; b++) sB[b] = c.pPostB[b] * Math.exp(0.3 * mb * ((b % 2) ? 1 : -1));
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=奇偶动量：全池奇数枚数短期均值差（近3期vs前6期）的方向倾斜——动态版奇偶视角（静态众数在奇偶动力学式）' };
+  }
+  function d54(c) { /* 在场频次式 */
+    var rows = c.rows, sR = {}, sB = {};
+    for (var n = 1; n <= 35; n++) { var c5 = 0; for (var i = 0; i < 5 && i < rows.length; i++) if (rows[i].front.indexOf(n) >= 0) c5++; sR[n] = c5; }
+    for (var b = 1; b <= 12; b++) { var c2 = 0; for (var i2 = 0; i2 < 5 && i2 < rows.length; i2++) if (rows[i2].back.indexOf(b) >= 0) c2++; sB[b] = c2; }
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=在场频次：近5期出现次数（离散短窗面板，无权重无比值）——与EWMA连续核、动量比值都不同的短窗统计' };
+  }
+  function d40(c) { /* 分层收缩式 */
+    var rows = c.rows, W = Math.min(120, rows.length), fR = frontFreq(rows, W), sR = {}, sB = {}, i, b;
+    var zsum = [0, 0, 0], gmu = 0, zsize = [12, 12, 11];
+    for (var n = 1; n <= 35; n++) { zsum[zoneF(n)] += fR[n] / W; gmu += fR[n] / W; }
+    gmu /= 35;
+    var zpost = [];
+    for (i = 0; i < 3; i++) zpost.push((zsum[i] + 6 * gmu) / (zsize[i] + 6));
+    for (n = 1; n <= 35; n++) sR[n] = (fR[n] / W + 4 * zpost[zoneF(n)]) / (1 + 4);
+    var fB = backFreqD(rows, 60), W60 = Math.min(60, rows.length);
+    var omu = 0, emu = 0;
+    for (b = 1; b <= 12; b++) { var p = fB[b] / (2 * W60); if (b % 2) omu += p; else emu += p; }
+    omu /= 6; emu /= 6;
+    for (b = 1; b <= 12; b++) { var p2 = fB[b] / (2 * W60); var cp = b % 2 ? omu : emu; sB[b] = (p2 + 2 * cp) / (1 + 2); }
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=分层收缩：号码频率向所属区后验收缩、区后验再向全局收缩的两级经验贝叶斯（后区按奇偶类收缩）——多层级估计，与后验优势式的单层收缩不同层级深度' };
+  }
+  function d55(c) { /* 模型平均式（BMA） */
+    function mPostG(rs, pool, getF, k, strength) {
+      var W20 = Math.min(20, rs.length), W = rs.length, f20 = {}, fAll = {}, n, i, j;
+      for (n = 1; n <= pool; n++) { f20[n] = 0; fAll[n] = 0; }
+      for (i = 0; i < W; i++) { var d = getF(rs[i]); for (j = 0; j < d.length; j++) { fAll[d[j]]++; if (i < W20) f20[d[j]]++; } }
+      var out = {};
+      for (n = 1; n <= pool; n++) {
+        var prior = (fAll[n] + 1) / (W * k + pool);
+        out[n] = (f20[n] + strength * prior) / (W20 * k + strength);
+      }
+      return out;
+    }
+    function mPhaseG(rs, pool, isIn) {
+      var pos = {}, n, i;
+      for (n = 1; n <= pool; n++) pos[n] = [];
+      var T = rs.length;
+      for (i = 0; i < T; i++) for (n = 1; n <= pool; n++) if (isIn(rs[i], n)) pos[n].push(i);
+      var out = {};
+      for (n = 1; n <= pool; n++) {
+        var g = pos[n], gaps = [];
+        for (var k2 = 1; k2 < g.length; k2++) gaps.push(g[k2] - g[k2 - 1]);
+        var mg = gaps.length ? median(gaps) : Math.max(pool / 3, 4);
+        var om = g.length ? T - 1 - g[g.length - 1] : T;
+        out[n] = Math.min(om / Math.max(mg, 2), 5);
+      }
+      return out;
+    }
+    function mTrendG(rs, pool, isIn) {
+      var seq = rs.slice(0, Math.min(90, rs.length)).slice().reverse();
+      var z = caTrendDLT(seq, pool, isIn);
+      var out = {};
+      for (var n = 1; n <= pool; n++) out[n] = -z[n];
+      return out;
+    }
+    function tiltP(sMap, pool) {
+      var vals = [], n;
+      for (n = 1; n <= pool; n++) vals.push(sMap[n]);
+      var mu = mean(vals), s = sd(vals) || 1;
+      var raw = {}, tot = 0;
+      for (n = 1; n <= pool; n++) { var z = (sMap[n] - mu) / s; raw[n] = Math.exp(0.35 * z); tot += raw[n]; }
+      var p = {};
+      for (n = 1; n <= pool; n++) p[n] = raw[n] / tot;
+      return p;
+    }
+    function bmaG(pool, getF, isIn, k, strength) {
+      var models = [
+        function (rs) { return mPostG(rs, pool, getF, k, strength); },
+        function (rs) { return mPhaseG(rs, pool, isIn); },
+        function (rs) { return mTrendG(rs, pool, isIn); }
+      ];
+      var steps = 0, LS = [0, 0, 0], m, n;
+      for (var t = 12; t >= 1; t--) {
+        if (t >= c.rows.length) continue;
+        var rs = c.rows.slice(t);
+        if (rs.length < 40) continue;
+        var win = getF(c.rows[t - 1]);
+        for (m = 0; m < 3; m++) {
+          var p = tiltP(models[m](rs), pool);
+          for (var j = 0; j < win.length; j++) LS[m] += Math.log(Math.max(p[win[j]], 1e-9));
+        }
+        steps++;
+      }
+      var w = [0, 0, 0], tot = 0;
+      for (m = 0; m < 3; m++) { w[m] = Math.exp(3 * (steps ? LS[m] / steps : 0)); tot += w[m]; }
+      var mix = {};
+      for (n = 1; n <= pool; n++) mix[n] = 0;
+      for (m = 0; m < 3; m++) {
+        var p2 = tiltP(models[m](c.rows), pool);
+        for (n = 1; n <= pool; n++) mix[n] += (w[m] / tot) * p2[n];
+      }
+      return mix;
+    }
+    var pF = bmaG(35, function (rw) { return rw.front; }, function (rw, num) { return rw.front.indexOf(num) >= 0; }, 5, 15);
+    var pB = bmaG(12, function (rw) { return rw.back; }, function (rw, num) { return rw.back.indexOf(num) >= 0; }, 2, 8);
+    var sR = {}, sB = {};
+    for (var n = 1; n <= 35; n++) sR[n] = pF[n];
+    for (var b = 1; b <= 12; b++) sB[b] = pB[b];
+    return { front: combo5(c, sR), back: backPair(c, sB), sR: sR, sB: sB, why: '主驱动=贝叶斯模型平均（BMA）：后验收缩/相位/CA趋势三个轻量模型在最近12期 walk-forward 对数得分上 softmax 加权，融合为前区/后区概率——集成视角，与双色球模型平均式的组件与实现均不同' };
+  }
+
   var FORMULAS = [
     { id: 'd1', name: '后验优势式', short: '后验', fn: g1 },
     { id: 'd2', name: '和值通道式', short: '通道', fn: g2 },
@@ -1862,7 +3187,47 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-25T02:
     { id: 'd12', name: '尾数谱式', short: '尾数', fn: d12 },
     { id: 'd13', name: '跨度结构式', short: '跨度', fn: d13 },
     { id: 'd14', name: '间隔节律式', short: '节律', fn: d14 },
-    { id: 'd15', name: '频机动量式', short: '动量', fn: d15 }
+    { id: 'd15', name: '频机动量式', short: '动量', fn: d15 },
+    { id: 'd16', name: 'EWMA频率式', short: '加权', fn: d16 },
+    { id: 'd17', name: '稳健频率式', short: '稳健', fn: d17 },
+    { id: 'd18', name: '先验敏感式', short: '杰氏', fn: d18 },
+    { id: 'd19', name: '纯遗漏式', short: '遗漏', fn: d19 },
+    { id: 'd20', name: '可信下界式', short: '下界', fn: d20 },
+    { id: 'd21', name: '空间核平滑式', short: '核平滑', fn: d21 },
+    { id: 'd22', name: '012路式', short: '012路', fn: d22 },
+    { id: 'd23', name: '行列几何式', short: '行列', fn: d23 },
+    { id: 'd24', name: '二阶承接式', short: '二阶', fn: d24 },
+    { id: 'd25', name: '自相关式', short: '自相关', fn: d25 },
+    { id: 'd26', name: '间隔偏度式', short: '偏度', fn: d26 },
+    { id: 'd27', name: '节奏斜率式', short: '斜率', fn: d27 },
+    { id: 'd28', name: '长休眠回补式', short: '休眠', fn: d28 },
+    { id: 'd29', name: '共现枢纽式', short: '枢纽', fn: d29 },
+    { id: 'd30', name: '跨区亲和式', short: '亲和', fn: d30 },
+    { id: 'd31', name: '近邻期回溯式', short: '近邻', fn: d31 },
+    { id: 'd32', name: '态势聚类式', short: '聚类', fn: d32 },
+    { id: 'd33', name: '长记忆式', short: '长记忆', fn: d33 },
+    { id: 'd34', name: '和值奇偶条件式', short: '和奇偶', fn: d34 },
+    { id: 'd35', name: '边界角色式', short: '边界', fn: d35 },
+    { id: 'd36', name: '变点响应式', short: '变点', fn: d36 },
+    { id: 'd37', name: '温带式', short: '温带', fn: d37 },
+    { id: 'd38', name: '区间偏离式', short: '区偏离', fn: d38 },
+    { id: 'd39', name: '跨区转移式', short: '区转移', fn: d39 },
+    { id: 'd40', name: '分层收缩式', short: '分层', fn: d40 },
+    { id: 'd41', name: '平均间隔式', short: '均间隔', fn: d41 },
+    { id: 'd42', name: '周期谱式', short: '周期', fn: d42 },
+    { id: 'd43', name: '星期条件式', short: '星期', fn: d43 },
+    { id: 'd44', name: '后区和值条件式', short: '后和值', fn: d44 },
+    { id: 'd45', name: '近缺席回补式', short: '近缺席', fn: d45 },
+    { id: 'd46', name: '抱团度式', short: '抱团', fn: d46 },
+    { id: 'd47', name: '平稳分布式', short: '平稳', fn: d47 },
+    { id: 'd48', name: '镜像补位式', short: '镜像', fn: d48 },
+    { id: 'd49', name: '首距承接式', short: '首距', fn: d49 },
+    { id: 'd50', name: '缺对回补式', short: '缺对', fn: d50 },
+    { id: 'd51', name: '排名动量式', short: '秩动量', fn: d51 },
+    { id: 'd52', name: '奇偶动量式', short: '奇动量', fn: d52 },
+    { id: 'd53', name: '断区式', short: '断区', fn: d53 },
+    { id: 'd54', name: '在场频次式', short: '在场', fn: d54 },
+    { id: 'd55', name: '模型平均式', short: 'BMA', fn: d55 }
   ];
 
   function argmaxOfD(m, pool) {
@@ -1884,7 +3249,7 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-25T02:
         pRed: tiltProbsD(r.sR, 35, 5), pBlue: tiltProbsD(r.sB, 12, 2) });
     }
     /* ===== 一票制：每式只举 1 个前区号 + 1 个后区号 =====
-       15 票 → 前区 5 席 / 后区 2 席：票数 → 信念强度(Σp) → Borda 积分 → 号码升序（确定性）；
+       55 票 → 前区 5 席 / 后区 2 席：票数 → 信念强度(Σp) → Borda 积分 → 号码升序（确定性）；
        不同主号不足席位时按 Borda 全池序补位（补位号 0 票，UI 明示）。 */
     var N = per.length;
     var ptsAll = bordaTopD(per, 35, 35, 'pRed');
@@ -1958,7 +3323,7 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-25T02:
 
   globalThis.DLT_ENGINE = {
     game: 'dlt',
-    version: '2026e1',
+    version: '2026f1',
     analyze: analyze,
     recommend: recommend,
     replay: replay,
@@ -2408,14 +3773,14 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-25T02:
     if (!rp.length) { h += '<div class="card"><p class="note">暂无可复盘期。</p></div>'; return h; }
     var A = aggStats(g, rp);
     var n = A.n;
-    var THR = zFromP(0.05, 30);
+    var THR = zFromP(0.05, 110);
 
     /* 卡1 口径说明 */
     h += '<div class="card"><h2>📐 统一量化口径（同一把尺子量 11 式）</h2><div class="klist">';
     h += '<b>① 概率化</b>：每式的主驱动分数 → 组内 z 标准化 → log-linear 倾斜 p(n)=p₀·e<sup>0.35z</sup> → 校准 Σp=' + (isS ? '6（红）/1（蓝）' : '5（前）/2（后）') + '，p₀=' + r3(A.K / A.pool) + '（' + (isS ? '红球' : '前区') + '零模型）。倾斜对分数单调，不改变各式的选号结果，只把「选号」变成「可评分的预测分布」。<br>';
     h += '<b>② Brier 分数</b>：均方概率误差 Σ(p−y)²/N，越小越好；BSS = 1 − Brier式/Brier零模型，&gt;0 表示比瞎猜准。<br>';
     h += '<b>③ 对数得分</b>：平均对数似然，技巧分 = 式 − 零模型（nats/号·期），越大越好。<br>';
-    h += '<b>④ 命中 z 检验</b>：对零模型的标准化偏离（合成注=超几何、单式票=二项），z=(实际−期望)/√方差；|z|≥' + THR + ' 才算通过 30 次比较的 Bonferroni 校正（防「挑好看的」）。<br>';
+    h += '<b>④ 命中 z 检验</b>：对零模型的标准化偏离（合成注=超几何、单式票=二项），z=(实际−期望)/√方差；|z|≥' + THR + ' 才算通过 110 次比较的 Bonferroni 校正（防「挑好看的」）。<br>';
     h += '<b>⑤ 诚实预期</b>：彩票为独立随机事件，长期看所有式的 BSS≈0、z≈0——量化层的价值是<b>用数据证实这一点</b>，并让波动可解释。</div></div>';
 
     /* 卡2 公式评分榜 */
@@ -2429,7 +3794,7 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-25T02:
     h += '</tbody></table>';
     var sigCount = 0;
     for (i = 0; i < A.fs.length; i++) if (Math.abs(A.fs[i].z) >= THR) sigCount++;
-    h += '<p class="note">零模型校准：若彩票确为随机，预期约 30×5%≈1.5 项出现 |z|≥1.96 的假阳性，而 |z|≥' + THR + ' 应基本不出现。当前 ' + sigCount + ' 项越过校正阈值' + (sigCount ? '——小样本下更可能是选择效应与多重比较，勿据此追热' : '，与随机性预期一致（诚实结论：公式不改变概率）') + '。BSS/log 技巧分为负属正常（倾斜偏离零模型但无真实信号）。</p></div>';
+    h += '<p class="note">零模型校准：若彩票确为随机，预期约 110×5%≈5.5 项出现 |z|≥1.96 的假阳性，而 |z|≥' + THR + ' 应基本不出现。当前 ' + sigCount + ' 项越过校正阈值' + (sigCount ? '——小样本下更可能是选择效应与多重比较，勿据此追热' : '，与随机性预期一致（诚实结论：公式不改变概率）') + '。BSS/log 技巧分为负属正常（倾斜偏离零模型但无真实信号）。</p></div>';
 
     /* 卡3 命中分布直方图 */
     h += '<div class="card"><h2>📊 票选注命中分布（观察 vs 零模型）</h2>';
@@ -2459,7 +3824,7 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-25T02:
     for (i = 0; i < wSub.length; i++) h += ballHTML(wSub[i], 'blue');
     h += '</div>';
     h += '<div class="meta2">加权 Borda 合成 · 第 ' + esc(C.nextIssue(rows[0].issue)) + ' 期参考（与基础票选并列对照，两者差异即「近期证据加权」的影响幅度）</div>';
-    h += '<p class="note">诚实声明：随机数据下权重≈均匀 1/15≈6.7%，权重波动只是噪声的再分配，不构成预测优势。</p></div>';
+    h += '<p class="note">诚实声明：随机数据下权重≈均匀 1/55≈1.8%，权重波动只是噪声的再分配，不构成预测优势。</p></div>';
 
     /* 卡5 概率透镜 */
     h += probLens(g);
@@ -2533,46 +3898,30 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-25T02:
   function helpView() {
     var h = '';
     h += '<div class="card"><h2>🧮 方法体系：每式一个独立科学方法</h2>';
-    h += '<div class="klist"><b>双色球（红 6/33 + 蓝 1/16）</b><br>';
-    h += '<span class="tag">贝叶斯</span>贝叶斯频率式：30期证据+100期先验的后验收缩概率<br>';
-    h += '<span class="tag">和值</span>和值密度式：历史和值正态近似，取密度最高带 μ±0.4σ<br>';
-    h += '<span class="tag">奇偶</span>奇偶形态式：奇数/大号枚数匹配近100期众数形态类<br>';
-    h += '<span class="tag">质合</span>质合形态式：质数枚数匹配历史众数（质数=2,3,5,7,11,13,17,19,23,29,31）<br>';
-    h += '<span class="tag">危险率</span>遗漏危险率式：hazard=当前遗漏÷平均间隔（生存分析视角）<br>';
-    h += '<span class="tag">转移</span>马尔可夫承接式：上期→下期一阶转移矩阵+±1邻号承接<br>';
-    h += '<span class="tag">覆盖</span>覆盖设计式：三区2:2:2+尾数覆盖≥5（组合覆盖设计）<br>';
-    h += '<span class="tag">心理</span>心理冷门式：反热门博弈——中奖概率不变，期望分成更高<br>';
-    h += '<span class="tag">趋势</span>趋势残差式：logistic 趋势 MLE 的 Pearson 残差（趋势调整后欠出现）<br>';
-    h += '<span class="tag">网络</span>反共现式：共现网络稀疏化，最小化组内两两共现频次<br>';
-    h += '<span class="tag">BMA</span>模型平均式：三模型 walk-forward 对数打分的证据加权集成<br>';
-    h += '<span class="tag">尾数</span>尾数谱式：尾位0-9频谱对均匀期望的标准化偏离（欠开回补）<br>';
-    h += '<span class="tag">跨度</span>跨度结构式：跨度众数 vs 中位数的宽窄倾向→边缘/中心亲和<br>';
-    h += '<span class="tag">节律</span>间隔节律式：出现间隔序列变异系数 CV（节律稳定者优先）<br>';
-    h += '<span class="tag">动量</span>频机动量式：近10期与近30期出现率之比（升温跟随）<br></div>';
-    h += '<div class="klist"><b>大乐透（前 5/35 + 后 2/12，与双色球独立实现）</b><br>';
-    h += '<span class="tag">后验</span>后验优势式：20期证据+120期先验（窗口/强度均不同）<br>';
-    h += '<span class="tag">通道</span>和值通道式：20期回归通道动态中心+均值回复相位<br>';
-    h += '<span class="tag">奇偶</span>奇偶动力学式：近20期众数相对近60期众数的动量定窗<br>';
-    h += '<span class="tag">质数</span>质数结构式：近60期质数枚数众数约束<br>';
-    h += '<span class="tag">相位</span>周期相位式：遗漏÷中位间隔（中位数口径）<br>';
-    h += '<span class="tag">转移</span>同尾转移式：全转移×1.0+同尾×0.6+邻号×0.5 三矩阵<br>';
-    h += '<span class="tag">覆盖</span>区间覆盖式：12/12/11 三区2:2:1+尾数覆盖≥4<br>';
-    h += '<span class="tag">心理</span>反热门博弈式：独立热门度表（含5倍整数/票面几何）<br>';
-    h += '<span class="tag">趋势</span>趋势得分式：Cochran–Armitage 趋势检验 z 分数<br>';
-    h += '<span class="tag">网络</span>雅卡尔反共现式：归一化共现稀疏化<br>';
-    h += '<span class="tag">条件</span>跨区条件式：前区和值段→后区奇偶的滞后条件众数<br>';
-    h += '<span class="tag">尾数</span>尾数谱式：前区尾位谱偏离（近60期）；后区同法<br>';
-    h += '<span class="tag">跨度</span>跨度结构式：近60期跨度众数倾向→边缘/中心亲和<br>';
-    h += '<span class="tag">节律</span>间隔节律式：间隔序列 CV（与相位式的中位间隔不同维度）<br>';
-    h += '<span class="tag">动量</span>频机动量式：近20期与近60期出现率之比<br></div>';
+    h += '<div class="klist"><b>双色球（红 6/33 + 蓝 1/16）· 55 式按七大家族分组</b><br>';
+    h += '<b>Ⅰ 频率与先验</b>（10式）：<span class="tag">贝叶斯</span>s1 后验收缩 ｜ <span class="tag">BMA</span>s11 三模型证据加权 ｜ <span class="tag">加权</span>s16 EWMA指数衰减频率 ｜ <span class="tag">稳健</span>s17 6块中位频率 ｜ <span class="tag">杰氏</span>s18 Jeffreys先验(f+0.5)/(N+1) ｜ <span class="tag">下界</span>s20 Beta后验5%下分位 ｜ <span class="tag">核平滑</span>s21 号轴±2邻域平滑 ｜ <span class="tag">温带</span>s37 频率排名12~22名温号 ｜ <span class="tag">分层</span>s40 号码→区→全局两级收缩 ｜ <span class="tag">在场</span>s54 近5期出现次数<br>';
+    h += '<b>Ⅱ 遗漏与节奏</b>（8式）：<span class="tag">危险率</span>s5 遗漏÷平均间隔 ｜ <span class="tag">节律</span>s14 间隔变异系数CV ｜ <span class="tag">遗漏</span>s19 原始遗漏榜 ｜ <span class="tag">偏度</span>s26 间隔三阶矩偏度 ｜ <span class="tag">斜率</span>s27 近6间隔回归斜率 ｜ <span class="tag">休眠</span>s28 遗漏÷历史最大间隔 ｜ <span class="tag">中位隔</span>s41 遗漏÷间隔中位数 ｜ <span class="tag">分位</span>s55 遗漏在自身间隔分布的分位<br>';
+    h += '<b>Ⅲ 结构形态</b>（12式）：<span class="tag">和值</span>s2 和值密度带 ｜ <span class="tag">奇偶</span>s3 奇偶/大小众数形态 ｜ <span class="tag">质合</span>s4 质数枚数众数 ｜ <span class="tag">覆盖</span>s7 三区2:2:2+尾覆盖≥5 ｜ <span class="tag">尾数</span>s12 尾位谱z偏离 ｜ <span class="tag">跨度</span>s13 跨度众数倾向 ｜ <span class="tag">012路</span>s22 mod3谱偏离 ｜ <span class="tag">行列</span>s23 票面6×6行列谱 ｜ <span class="tag">边界</span>s35 最小/最大号角色频率 ｜ <span class="tag">区偏离</span>s38 三区z偏离 ｜ <span class="tag">镜像</span>s48 34−n对称位频率 ｜ <span class="tag">断区</span>s53 近4期整区未开回补<br>';
+    h += '<b>Ⅳ 转移与条件</b>（14式）：<span class="tag">转移</span>s6 一阶转移+邻号 ｜ <span class="tag">二阶</span>s24 隔期lag-2转移 ｜ <span class="tag">自相关</span>s25 逐号lag-1自相关 ｜ <span class="tag">亲和</span>s30 红-蓝同现率 ｜ <span class="tag">近邻</span>s31 最相似8期实例聚合 ｜ <span class="tag">聚类</span>s32 和值×奇偶六格条件 ｜ <span class="tag">和奇偶</span>s34 上期和值奇偶条件 ｜ <span class="tag">同尾</span>s39 尾位转移矩阵 ｜ <span class="tag">周期</span>s42 有限频点谱投影 ｜ <span class="tag">星期</span>s43 下期星期条件频率 ｜ <span class="tag">蓝引导</span>s44 到期蓝→红同现 ｜ <span class="tag">近缺席</span>s45 近5在场∧近2缺席 ｜ <span class="tag">平稳</span>s47 平稳分布π ｜ <span class="tag">首距</span>s49 上期最小号距离直方图<br>';
+    h += '<b>Ⅴ 网络与图</b>（4式）：<span class="tag">网络</span>s10 反共现稀疏化 ｜ <span class="tag">枢纽</span>s29 度中心性 ｜ <span class="tag">抱团</span>s46 局部聚类系数 ｜ <span class="tag">缺对</span>s50 528对最久未同现<br>';
+    h += '<b>Ⅵ 趋势与谱</b>（6式）：<span class="tag">趋势</span>s9 logistic趋势残差 ｜ <span class="tag">动量</span>s15 10/30期比值 ｜ <span class="tag">长记忆</span>s33 R/S Hurst指数 ｜ <span class="tag">变点</span>s36 CUSUM变点后速率 ｜ <span class="tag">秩动量</span>s51 百期名次−十期名次 ｜ <span class="tag">奇动量</span>s52 奇数枚数均值差倾斜<br>';
+    h += '<b>Ⅶ 反热门博弈</b>（1式）：<span class="tag">心理</span>s8 规避生日段/票面热门（期望分成视角）<br></div>';
+    h += '<div class="klist"><b>大乐透（前 5/35 + 后 2/12，与双色球独立实现）· 55 式按七大家族分组</b><br>';
+    h += '<b>Ⅰ 频率与先验</b>（10式）：<span class="tag">后验</span>d1 20期证据+120期先验 ｜ <span class="tag">加权</span>d16 EWMA指数衰减 ｜ <span class="tag">稳健</span>d17 块中位频率 ｜ <span class="tag">杰氏</span>d18 Jeffreys先验 ｜ <span class="tag">下界</span>d20 Beta下分位 ｜ <span class="tag">核平滑</span>d21 号轴±2平滑 ｜ <span class="tag">温带</span>d37 12~22名温号 ｜ <span class="tag">分层</span>d40 两级收缩 ｜ <span class="tag">在场</span>d54 近5期出现次数 ｜ <span class="tag">BMA</span>d55 后验/相位/CA三模型walk-forward<br>';
+    h += '<b>Ⅱ 遗漏与节奏</b>（7式）：<span class="tag">相位</span>d5 遗漏÷中位间隔 ｜ <span class="tag">节律</span>d14 间隔CV ｜ <span class="tag">遗漏</span>d19 原始遗漏榜 ｜ <span class="tag">偏度</span>d26 间隔偏度 ｜ <span class="tag">斜率</span>d27 间隔斜率 ｜ <span class="tag">休眠</span>d28 遗漏÷最大间隔 ｜ <span class="tag">均间隔</span>d41 遗漏÷平均间隔<br>';
+    h += '<b>Ⅲ 结构形态</b>（12式）：<span class="tag">通道</span>d2 和值回归通道 ｜ <span class="tag">奇偶</span>d3 奇偶动量定窗 ｜ <span class="tag">质数</span>d4 质数枚数众数 ｜ <span class="tag">覆盖</span>d7 12/12/11三区2:2:1 ｜ <span class="tag">尾数</span>d12 尾位谱偏离 ｜ <span class="tag">跨度</span>d13 跨度众数倾向 ｜ <span class="tag">012路</span>d22 mod3谱偏离 ｜ <span class="tag">行列</span>d23 7×5票面行列谱 ｜ <span class="tag">边界</span>d35 最小/最大号角色 ｜ <span class="tag">区偏离</span>d38 三区z偏离 ｜ <span class="tag">镜像</span>d48 36−n对称位 ｜ <span class="tag">断区</span>d53 近4期断区<br>';
+    h += '<b>Ⅳ 转移与条件</b>（14式）：<span class="tag">转移</span>d6 全转移+同尾+邻号三矩阵 ｜ <span class="tag">条件</span>d11 前区和值段→后区奇偶 ｜ <span class="tag">二阶</span>d24 lag-2转移 ｜ <span class="tag">自相关</span>d25 lag-1自相关 ｜ <span class="tag">亲和</span>d30 前-后同现率 ｜ <span class="tag">近邻</span>d31 相似8期聚合 ｜ <span class="tag">聚类</span>d32 态势六格条件 ｜ <span class="tag">和奇偶</span>d34 和值奇偶条件 ｜ <span class="tag">区转移</span>d39 区→区转移矩阵 ｜ <span class="tag">星期</span>d43 下期星期条件 ｜ <span class="tag">后和值</span>d44 后区和值段→前区频率 ｜ <span class="tag">近缺席</span>d45 近5在场∧近2缺席 ｜ <span class="tag">平稳</span>d47 平稳分布 ｜ <span class="tag">首距</span>d49 首号距离直方图<br>';
+    h += '<b>Ⅴ 网络与图</b>（4式）：<span class="tag">网络</span>d10 雅卡尔反共现 ｜ <span class="tag">枢纽</span>d29 度中心性 ｜ <span class="tag">抱团</span>d46 局部聚类系数 ｜ <span class="tag">缺对</span>d50 595对最久未同现<br>';
+    h += '<b>Ⅵ 趋势与谱</b>（7式）：<span class="tag">趋势</span>d9 CA趋势检验z ｜ <span class="tag">动量</span>d15 20/60期比值 ｜ <span class="tag">长记忆</span>d33 Hurst指数 ｜ <span class="tag">变点</span>d36 CUSUM速率 ｜ <span class="tag">周期</span>d42 频点谱投影 ｜ <span class="tag">秩动量</span>d51 120期名次−20期名次 ｜ <span class="tag">奇动量</span>d52 奇数枚数倾斜<br>';
+    h += '<b>Ⅶ 反热门博弈</b>（1式）：<span class="tag">心理</span>d8 独立热门度表（5倍整数/票面几何）<br></div>';
     h += '<p class="note">两彩种公式为各自独立实现（不同号码池/窗口/口径/代码），无任何共享选号逻辑；每式仅一个主驱动，其余统计量只作平票排序，避免冗余。全程无随机数：同一数据永远得到同一组号。</p>';
     h += '</div>';
     h += '<div class="card"><h2>🗳 投票合成与量化升级</h2>';
-    h += '<div class="klist"><b>一票制合成</b>：15 式每式只举 1 个主区号（其主驱动分数的 argmax）+ 1 个蓝球/后区号 → 主区 15 票选 6 席（双色球）/ 5 席（大乐透）、后区 15 票选 2 席；席位排序 = 票数 → 信念强度(Σp) → Borda 积分 → 号码升序；票型不足席位时按 Borda 全池序补位并在页面明示。推荐区同时展示「与上期重合度」与每号票源明细。<br>';
+    h += '<div class="klist"><b>一票制合成</b>：55 式每式只举 1 个主区号（其主驱动分数的 argmax）+ 1 个蓝球/后区号 → 主区 55 票选 6 席（双色球）/ 5 席（大乐透）、后区 55 票选 2 席；席位排序 = 票数 → 信念强度(Σp) → Borda 积分 → 号码升序；票型不足席位时按 Borda 全池序补位并在页面明示。推荐区同时展示「与上期重合度」与每号票源明细。<br>';
     h += '<b>Borda 计分注</b>：每式对全池号码按统一概率排名积分（池−名次），比单号票选多利用「未入选号的相对序」，并列对照展示。<br>';
     h += '<b>多注输出</b>：按票数全序贪心生成 3 注，注间主区重叠≤2（降低多注同沉的相关性）。<br>';
-    h += '<b>自适应加权注</b>：w_i ∝ exp(6·n·skill/(n+40))，skill=复盘窗口对数得分技巧分；n₀=40 正则化——样本越小权重越接近均匀 1/15≈6.7%，防过拟合。量化页可查看权重条形与合成结果。<br>';
-    h += '<b>统一概率口径</b>：每式主驱动分数 z 标准化后做 log-linear 倾斜（β=0.35）并校准 Σp=k——同一把尺子让 22 组「式×区」可用 Brier/对数得分/超几何 z 检验公平横评；评估层为两引擎共用的纯数学量尺，不含任何选号逻辑。</div></div>';
+    h += '<b>自适应加权注</b>：w_i ∝ exp(6·n·skill/(n+40))，skill=复盘窗口对数得分技巧分；n₀=40 正则化——样本越小权重越接近均匀 1/55≈1.8%，防过拟合。量化页可查看权重条形与合成结果。<br>';
+    h += '<b>统一概率口径</b>：每式主驱动分数 z 标准化后做 log-linear 倾斜（β=0.35）并校准 Σp=k——同一把尺子让每彩种 110 组「式×区」（55 式 × 主区/后区）可用 Brier/对数得分/超几何 z 检验公平横评；评估层为两引擎共用的纯数学量尺，不含任何选号逻辑。</div></div>';
     h += '<div class="card"><h2>🔄 开奖数据自动更新 + 复盘</h2>';
     h += '<div class="klist">① 本仓库由 <b>GitHub Actions</b> 于每日 <b>21:35 / 22:05 / 次日 09:30</b>（北京时间）自动抓取福彩/体彩官网开奖数据并提交；<br>② 页面每次打开自动拉取最新 data/*.json（另有镜像频道兜底），开奖后即可看到最新开奖；<br>③ <b>复盘</b>页自动逐期重算「当时会推荐什么」并对照实际开奖，窗口可选 15/30/50/100 期；<br>④ 推荐区自动以最新数据推导<b>下一期</b>参考号——开奖后无需任何手动操作。</div></div>';
     h += '<div class="card"><h2>⚠️ 诚实声明</h2>';
