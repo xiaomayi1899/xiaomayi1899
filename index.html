@@ -2242,7 +2242,7 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-25T02:
       ];
       var evF = 3000 * 162 / TOT + 200 * 7695 / TOT + 10 * 137475 / TOT + 5 * 1043640 / TOT;
       var fuP = 877500 / TOT;
-      h += '<div class="meta2">总组合数 C(33,6)×16 = ' + fmtInt(TOT) + '，单注头奖概率 1/' + fmtInt(TOT) + '（约 ' + fmtInt(Math.round(TOT / 52)) + ' 年一遇，按每周 3 期）</div>';
+      h += '<div class="meta2">总组合数 C(33,6)×16 = ' + fmtInt(TOT) + '，单注头奖概率 1/' + fmtInt(TOT) + '（每年约 156 期，' + fmtInt(Math.round(TOT / 156)) + ' 年一遇）</div>';
       h += '<table><thead><tr><th>奖级</th><th>条件</th><th>中奖组合数</th><th>概率</th><th>单注奖金</th></tr></thead><tbody>';
       for (var i = 0; i < tiers.length; i++) {
         h += '<tr><td>' + tiers[i].nm + '</td><td class="mono">' + tiers[i].cond + '</td><td>' + fmtInt(tiers[i].cnt) + '</td><td>1/' + fmtInt(Math.round(TOT / tiers[i].cnt)) + '</td><td>' + (tiers[i].amt === '浮动' ? '浮动' : tiers[i].amt + '元') + '</td></tr>';
