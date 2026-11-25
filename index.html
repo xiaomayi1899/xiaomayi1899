@@ -3776,7 +3776,7 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-25T02:
     var THR = zFromP(0.05, 110);
 
     /* 卡1 口径说明 */
-    h += '<div class="card"><h2>📐 统一量化口径（同一把尺子量 11 式）</h2><div class="klist">';
+    h += '<div class="card"><h2>📐 统一量化口径（同一把尺子量 55 式）</h2><div class="klist">';
     h += '<b>① 概率化</b>：每式的主驱动分数 → 组内 z 标准化 → log-linear 倾斜 p(n)=p₀·e<sup>0.35z</sup> → 校准 Σp=' + (isS ? '6（红）/1（蓝）' : '5（前）/2（后）') + '，p₀=' + r3(A.K / A.pool) + '（' + (isS ? '红球' : '前区') + '零模型）。倾斜对分数单调，不改变各式的选号结果，只把「选号」变成「可评分的预测分布」。<br>';
     h += '<b>② Brier 分数</b>：均方概率误差 Σ(p−y)²/N，越小越好；BSS = 1 − Brier式/Brier零模型，&gt;0 表示比瞎猜准。<br>';
     h += '<b>③ 对数得分</b>：平均对数似然，技巧分 = 式 − 零模型（nats/号·期），越大越好。<br>';
