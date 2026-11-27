@@ -98,7 +98,7 @@ footer{font-size:10px;color:#5e6f94;text-align:center;padding:20px 0 0;line-heig
     <button data-tab="help">📖 说明</button>
   </nav>
   <main id="view"></main>
-  <footer>开奖为独立随机事件 · 统计工具不改变中奖概率 · 量化层只做诚实度量 · 仅供娱乐参考<br>数据源：福彩官网 / 体彩官网 · GitHub Actions 开奖后自动同步 · 引擎 2026f1 一票制 55 式</footer>
+  <footer>开奖为独立随机事件 · 统计工具不改变中奖概率 · 量化层只做诚实度量 · 仅供娱乐参考<br>数据源：福彩官网 / 体彩官网 · GitHub Actions 开奖后自动同步 · 引擎 2026f2 一票制 55 式</footer>
 </div>
 <div id="toast" class="hide"></div>
 <script>
@@ -274,8 +274,24 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-27T03:
   }
   function countBy(arr) { var m = {}; for (var i = 0; i < arr.length; i++) m[arr[i]] = (m[arr[i]] || 0) + 1; return m; }
 
+  /* ---------------- 共享缓存（纯工程加速，不改变任何输出） ----------------
+   * 同键命中直接复用上次 analyze/recommend 的结果对象；键=最新三期期号+最老一期期号+期数，
+   * 数据更新（新增期/修正近期/截断历史）必然换键。结果对象全项目只读消费，复用安全。
+   * FIFO 上限 160 条防内存增长；两引擎缓存各自独立持有（零共享原则）。 */
+  function cacheKey(rows) {
+    return (rows[0] ? rows[0].issue : '') + '|' + (rows[1] ? rows[1].issue : '') + '|' +
+      (rows[2] ? rows[2].issue : '') + '|' + (rows[rows.length - 1] ? rows[rows.length - 1].issue : '') + '|' + rows.length;
+  }
+  var _CAP = 160;
+  function memoPut(cache, keys, k, v) {
+    if (cache[k] !== undefined) return;
+    if (keys.length >= _CAP) delete cache[keys.shift()];
+    cache[k] = v; keys.push(k);
+  }
+  var _aCache = {}, _aKeys = [], _rCache = {}, _rKeys = [];
+
   /* ---------------- 形态分析 ---------------- */
-  function analyze(rows) {
+  function analyzeRaw(rows) {
     var W100 = Math.min(100, rows.length);
     var of = rows.slice().reverse();
     var sums = of.map(function (r) { var s = 0; for (var i = 0; i < r.red.length; i++) s += r.red[i]; return s; });
@@ -351,6 +367,13 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-27T03:
       modeOdd: modeOdd, modeBig: modeBig, modePrime: modePrime, primeRatio: primeRatio,
       tc20: tc20, nD: rows.length, W100: W100
     };
+  }
+  function analyze(rows) {
+    var k = 'A|' + cacheKey(rows);
+    if (_aCache[k] !== undefined) return _aCache[k];
+    var v = analyzeRaw(rows);
+    memoPut(_aCache, _aKeys, k, v);
+    return v;
   }
 
   /* ---------------- 约束组合枚举（确定性） ---------------- */
@@ -1675,7 +1698,7 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-27T03:
   }
 
   /* ---------------- 推荐（一票制合成） ---------------- */
-  function recommend(rows) {
+  function recommendRaw(rows) {
     if (!rows || rows.length < 30) throw new Error('数据不足（需≥30期）');
     var c = analyze(rows);
     var per = [];
@@ -1731,6 +1754,13 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-27T03:
       issue: rows[0].issue
     };
   }
+  function recommend(rows) {
+    var k = 'R|' + cacheKey(rows);
+    if (_rCache[k] !== undefined) return _rCache[k];
+    var v = recommendRaw(rows);
+    memoPut(_rCache, _rKeys, k, v);
+    return v;
+  }
 
   /* ---------------- 复盘：逐期用「开奖前可得数据」重算推荐并对照实际 ---------------- */
   function replay(rows, n) {
@@ -1757,7 +1787,7 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-27T03:
 
   globalThis.SSQ_ENGINE = {
     game: 'ssq',
-    version: '2026f1',
+    version: '2026f2',
     analyze: analyze,
     recommend: recommend,
     replay: replay,
@@ -1862,8 +1892,24 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-27T03:
     return m;
   }
 
+  /* ---------------- 共享缓存（纯工程加速，不改变任何输出） ----------------
+   * 同键命中直接复用上次 analyze/recommend 的结果对象；键=最新三期期号+最老一期期号+期数，
+   * 数据更新（新增期/修正近期/截断历史）必然换键。结果对象全项目只读消费，复用安全。
+   * FIFO 上限 160 条防内存增长；两引擎缓存各自独立持有（零共享原则，与双色球实现独立）。 */
+  function cacheKey(rows) {
+    return (rows[0] ? rows[0].issue : '') + '|' + (rows[1] ? rows[1].issue : '') + '|' +
+      (rows[2] ? rows[2].issue : '') + '|' + (rows[rows.length - 1] ? rows[rows.length - 1].issue : '') + '|' + rows.length;
+  }
+  var _CAP = 160;
+  function memoPut(cache, keys, k, v) {
+    if (cache[k] !== undefined) return;
+    if (keys.length >= _CAP) delete cache[keys.shift()];
+    cache[k] = v; keys.push(k);
+  }
+  var _aCache = {}, _aKeys = [], _rCache = {}, _rKeys = [];
+
   /* ---------------- 形态分析 ---------------- */
-  function analyze(rows) {
+  function analyzeRaw(rows) {
     var W120 = Math.min(120, rows.length), W60 = Math.min(60, rows.length), W20 = Math.min(20, rows.length);
     var of = rows.slice().reverse();
     var sumsF = of.map(function (r) { var s = 0; for (var i = 0; i < r.front.length; i++) s += r.front[i]; return s; });
@@ -1949,6 +1995,13 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-27T03:
       TF: TF, TST: TST, TADJ: TADJ, TB: TB,
       lastFront: lastFront, nD: rows.length, W120: W120, W60: W60, W20: W20
     };
+  }
+  function analyze(rows) {
+    var k = 'A|' + cacheKey(rows);
+    if (_aCache[k] !== undefined) return _aCache[k];
+    var v = analyzeRaw(rows);
+    memoPut(_aCache, _aKeys, k, v);
+    return v;
   }
 
   /* ---------------- 前区约束组合枚举（确定性） ---------------- */
@@ -3237,7 +3290,7 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-27T03:
   }
 
   /* ---------------- 推荐（一票制合成；独立实现于双色球） ---------------- */
-  function recommend(rows) {
+  function recommendRaw(rows) {
     if (!rows || rows.length < 30) throw new Error('数据不足（需≥30期）');
     var c = analyze(rows);
     var per = [];
@@ -3295,6 +3348,13 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-27T03:
       issue: rows[0].issue
     };
   }
+  function recommend(rows) {
+    var k = 'R|' + cacheKey(rows);
+    if (_rCache[k] !== undefined) return _rCache[k];
+    var v = recommendRaw(rows);
+    memoPut(_rCache, _rKeys, k, v);
+    return v;
+  }
 
   /* ---------------- 复盘：逐期用「开奖前可得数据」重算推荐并对照实际 ---------------- */
   function replay(rows, n) {
@@ -3323,7 +3383,7 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-27T03:
 
   globalThis.DLT_ENGINE = {
     game: 'dlt',
-    version: '2026f1',
+    version: '2026f2',
     analyze: analyze,
     recommend: recommend,
     replay: replay,
@@ -3809,8 +3869,49 @@ window.BAKED_DLT = {"game":"dlt","source":"official","updatedAt":"2026-11-27T03:
     }
     h += '<div class="meta2">蓝条=观察 · 灰条=零模型期望（右列数字：观察/期望）</div></div>';
 
-    /* 卡4 自适应权重 + 加权 Borda 注 */
+    /* 卡3.5 投票结构透明度：有效独立票数 + 式间相关（55²/Σ票² 与逐期 Pearson 平均） */
     var rec = memo(g, 'rec', function () { return eng.recommend(rows); });
+    var st = memo(g, 'struct|' + n, function () {
+      var V = 55, v2 = 0, bv2 = 0, nn;
+      for (nn in rec.votes) v2 += rec.votes[nn] * rec.votes[nn];
+      for (nn in rec.blueVotes) bv2 += rec.blueVotes[nn] * rec.blueVotes[nn];
+      var F = rec.per.length, P = A.pool, pvecs = [];
+      for (var i4 = 0; i4 < rp.length; i4++) {
+        var pv = [];
+        for (var k4 = 0; k4 < F; k4++) {
+          var arr = [], n5;
+          for (n5 = 1; n5 <= P; n5++) arr.push(rp[i4].rec.per[k4].pRed[n5]);
+          pv.push(arr);
+        }
+        pvecs.push(pv);
+      }
+      function pearson(x, y) {
+        var sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0, m = x.length, j;
+        for (j = 0; j < m; j++) { sx += x[j]; sy += y[j]; sxx += x[j] * x[j]; syy += y[j] * y[j]; sxy += x[j] * y[j]; }
+        var cov = sxy - sx * sy / m, vx = sxx - sx * sx / m, vy = syy - sy * sy / m;
+        if (vx < 1e-9 || vy < 1e-9) return 1; /* 近常数向量（浮点尘埃级方差）视为完全同分布 */
+        return cov / Math.sqrt(vx * vy);
+      }
+      var sumR = 0, cnt2 = 0, hi = [];
+      for (var a2 = 0; a2 < F; a2++) for (var b3 = a2 + 1; b3 < F; b3++) {
+        var rs = 0;
+        for (var i5 = 0; i5 < rp.length; i5++) rs += pearson(pvecs[i5][a2], pvecs[i5][b3]);
+        var rAvg = rs / rp.length;
+        sumR += rAvg; cnt2++;
+        if (rAvg >= 0.9) hi.push({ a: rec.per[a2].name, b: rec.per[b3].name, r: rAvg });
+      }
+      hi.sort(function (x, y) { return y.r - x.r; });
+      return { effMain: V * V / Math.max(v2, 1), effSub: V * V / Math.max(bv2, 1), avg: sumR / cnt2, hi: hi, nPairs: cnt2 };
+    });
+    h += '<div class="card"><h2>🧾 投票结构透明度（有效独立票数与冗余式对）</h2><div class="klist">';
+    h += '<b>有效独立票数</b> = 名义票数² ÷ Σ(单号票数²)：衡量 55 票的真实分散度。当前主区 ≈<b>' + st.effMain.toFixed(1) + '</b> 票，' + (isS ? '蓝球' : '后区') + ' ≈<b>' + st.effSub.toFixed(1) + '</b> 票（名义 55）。<br>';
+    h += '<b>式间平均相关</b>：' + st.avg.toFixed(3) + '（' + st.nPairs + ' 对式两两 pRed 向量逐期 Pearson 取平均）；相关 ≥0.9 的冗余式对 <b>' + st.hi.length + '</b> 对';
+    for (var i6 = 0; i6 < st.hi.length && i6 < 6; i6++) h += (i6 ? '、' : '：') + esc(st.hi[i6].a) + '×' + esc(st.hi[i6].b) + '（r=' + st.hi[i6].r.toFixed(3) + '）';
+    if (st.hi.length > 6) h += ' 等共 ' + st.hi.length + ' 对';
+    h += '。高相关 = 两式共享同一主驱动信号、票被重复计入；保留是为家族多样性，量化权重已做收缩平滑，不会重复放大。</div>';
+    h += '<p class="note">彩种隔离声明：本页全部统计只在本彩种 55 式内部计算——双色球与大乐透两引擎零共享（号码池、窗口、公式、缓存均各自独立，无任何跨彩种数据或公式引用），严格分开、禁止混用。结果缓存只复用同键的确定性计算，不改变任何输出。</p></div>';
+
+    /* 卡4 自适应权重 + 加权 Borda 注 */
     var wFront = eng.bordaTop(rec.per, A.pool, A.K, 'pRed', A.ws).sort(function (a, b) { return a - b; });
     var wSub = eng.bordaTop(rec.per, A.subPool, A.subK, 'pBlue', A.ws).sort(function (a, b) { return a - b; });
     h += '<div class="card"><h2>⚖️ 自适应量化权重 + 加权 Borda 注</h2>';
